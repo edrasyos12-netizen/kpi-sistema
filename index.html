@@ -93,9 +93,7 @@
       width: 100%; display: flex; align-items: center;
       gap: 10px; color: #bbb; font-size: 0.75rem; font-weight: 600;
     }
-    .divider::before, .divider::after {
-      content: ''; flex: 1; height: 1px; background: #ccc;
-    }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #ccc; }
 
     .oauth-btns { width: 100%; display: flex; flex-direction: column; gap: 10px; }
 
@@ -137,6 +135,7 @@
       to   { opacity: 1; transform: scale(1) translateY(0); }
     }
     .modal h2 { color: #cc0000; font-size: 1.5rem; font-weight: 800; }
+    .modal .fields { width: 100%; display: flex; flex-direction: column; gap: 14px; }
     .back-link { font-size: 0.78rem; color: #999; cursor: pointer; }
     .back-link:hover { color: #cc0000; }
 
@@ -158,7 +157,6 @@
 
   <div class="card">
     <h1>Iniciar Sesión</h1>
-
     <div class="fields">
       <div class="input-wrap">
         <span class="ico">✉</span>
@@ -169,7 +167,6 @@
         <input type="password" id="loginPass" placeholder="Password" autocomplete="current-password"/>
       </div>
     </div>
-
     <span class="forgot">¿Olvidaste tu contraseña?</span>
     <button class="btn-primary" id="btnLogin" onclick="handleLogin()">ACCEDER</button>
 
@@ -189,11 +186,11 @@
     <p class="create-row">¿No tienes cuenta? <a onclick="abrirModal()">Crear Cuenta</a></p>
   </div>
 
-  <!-- MODAL -->
+  <!-- MODAL CREAR CUENTA -->
   <div class="overlay" id="overlay" onclick="cerrarFuera(event)">
     <div class="modal">
       <h2>Crear Cuenta</h2>
-      <div class="fields" style="display:flex;flex-direction:column;gap:14px;">
+      <div class="fields">
         <div class="input-wrap">
           <span class="ico">👤</span>
           <input type="text" id="regNombre" placeholder="Nombre completo"/>
@@ -215,7 +212,8 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    const SITE_URL = 'https://admirable-gumdrop-b630aa.netlify.app';
+    const SITE_URL = 'https://kpi-sistema.vercel.app';
+    const DASHBOARD_URL = SITE_URL + '/dashboard.html';
 
     const { createClient } = supabase;
     const sb = createClient(
@@ -233,8 +231,7 @@
 
     function toast(msg, color) {
       const el = document.getElementById('toast');
-      el.textContent = msg;
-      el.style.background = color || '#222';
+      el.textContent = msg; el.style.background = color || '#222';
       el.classList.add('show');
       setTimeout(() => el.classList.remove('show'), 3500);
     }
@@ -243,7 +240,7 @@
     function cerrarModal() { document.getElementById('overlay').classList.remove('open'); }
     function cerrarFuera(e){ if (e.target.id === 'overlay') cerrarModal(); }
 
-    // Login email/pass
+    // ── Login email/pass ──
     async function handleLogin() {
       const email = document.getElementById('loginEmail').value.trim();
       const pass  = document.getElementById('loginPass').value;
@@ -258,25 +255,25 @@
         if (data && data.length > 0) {
           sessionStorage.setItem('kpi_session', JSON.stringify(data[0]));
           toast('¡Bienvenido, ' + data[0].nombre + '!', '#1a7a1a');
-          setTimeout(() => { toast('Cargando dashboard... 🚀', '#333'); }, 1800);
+          setTimeout(() => { window.location.href = DASHBOARD_URL; }, 1200);
         } else {
           toast('Email o contraseña incorrectos.', '#b00000');
+          btn.disabled = false; btn.textContent = 'ACCEDER';
         }
       } catch(e) {
         toast('Error de conexión.', '#b00000');
-      } finally {
         btn.disabled = false; btn.textContent = 'ACCEDER';
       }
     }
 
-    // Login Google
+    // ── Login Google ──
     async function loginGoogle() {
       const btn = document.getElementById('btnGoogle');
       btn.disabled = true;
       btn.innerHTML = '<img src="https://www.google.com/favicon.ico" style="width:20px"/> Redirigiendo...';
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: SITE_URL }
+        options: { redirectTo: DASHBOARD_URL }
       });
       if (error) {
         toast('Error: ' + error.message, '#b00000');
@@ -285,14 +282,14 @@
       }
     }
 
-    // Login Microsoft
+    // ── Login Microsoft ──
     async function loginMicrosoft() {
       const btn = document.getElementById('btnMicrosoft');
       btn.disabled = true;
       btn.innerHTML = '<img src="https://www.microsoft.com/favicon.ico" style="width:20px"/> Redirigiendo...';
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'azure',
-        options: { redirectTo: SITE_URL }
+        options: { redirectTo: DASHBOARD_URL }
       });
       if (error) {
         toast('Error: ' + error.message, '#b00000');
@@ -301,7 +298,7 @@
       }
     }
 
-    // Registro manual
+    // ── Registro ──
     async function handleRegistro() {
       const nombre = document.getElementById('regNombre').value.trim();
       const email  = document.getElementById('regEmail').value.trim();
@@ -340,7 +337,7 @@
       }
     }
 
-    // Enter key
+    // ── Enter key ──
     document.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         if (document.getElementById('overlay').classList.contains('open')) handleRegistro();
@@ -348,7 +345,7 @@
       }
     });
 
-    // Verificar sesión OAuth al regresar
+    // ── OAuth redirect handler ──
     sb.auth.onAuthStateChange((event, session) => {
       if (session && session.user) {
         const user = session.user;
@@ -357,8 +354,7 @@
           email: user.email,
           id: user.id
         }));
-        toast('¡Bienvenido, ' + (user.user_metadata?.full_name || user.email) + '!', '#1a7a1a');
-        setTimeout(() => { toast('Cargando dashboard... 🚀', '#333'); }, 1800);
+        window.location.href = DASHBOARD_URL;
       }
     });
   </script>
