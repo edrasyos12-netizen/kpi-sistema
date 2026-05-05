@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KPI Sistema — Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red: #cc0000; --red-dark: #900000; --red-light: #ff4444;
+      --sidebar-bg: #1a1a2e; --bg: #f0f2f5; --white: #fff;
+      --text: #2d2d2d; --text-light: #888; --border: #e0e0e0;
+      --shadow: 0 4px 20px rgba(0,0,0,0.08);
+      --sidebar-w: 220px;
+    }
+
+    body { font-family: 'Montserrat', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-height: 100vh;
+      background: var(--sidebar-bg);
+      display: flex; flex-direction: column;
+      position: fixed; top: 0; left: 0; z-index: 300;
+      transform: translateX(0);
+      transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+    }
+
+    .sidebar.hidden { transform: translateX(-100%); }
+
+    /* Overlay para cerrar sidebar */
+    .sidebar-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 299;
+    }
+    .sidebar-overlay.show { display: block; }
+
+    .sidebar-logo {
+      padding: 24px 24px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .sidebar-logo-text h2 { color: #fff; font-size: 1rem; font-weight: 800; letter-spacing: 1px; }
+    .sidebar-logo-text span { color: var(--red-light); font-size: 0.65rem; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; }
+
+    .btn-close-sidebar {
+      background: rgba(255,255,255,0.08);
+      border: none; color: rgba(255,255,255,0.6);
+      width: 28px; height: 28px; border-radius: 6px;
+      cursor: pointer; font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .btn-close-sidebar:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+    .sidebar-nav { flex: 1; padding: 16px 0; display: flex; flex-direction: column; gap: 2px; }
+
+    .nav-section { padding: 14px 24px 6px; font-size: 0.62rem; font-weight: 700; color: rgba(255,255,255,0.28); letter-spacing: 2px; text-transform: uppercase; }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 24px;
+      color: rgba(255,255,255,0.58); font-size: 0.87rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+      border-left: 3px solid transparent; text-decoration: none;
+    }
+    .nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+    .nav-item.active { background: rgba(204,0,0,0.18); color: #fff; border-left-color: var(--red); }
+    .nav-item .nav-icon { font-size: 1rem; width: 20px; text-align: center; }
+
+    .sidebar-footer { padding: 12px 0; border-top: 1px solid rgba(255,255,255,0.08); }
+
+    /* ── TOPBAR ── */
+    .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; transition: margin-left 0.3s; }
+    .main.full { margin-left: 0; }
+
+    .topbar {
+      background: var(--white); padding: 14px 28px;
+      display: flex; align-items: center; justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      position: sticky; top: 0; z-index: 50;
+    }
+
+    .topbar-left { display: flex; align-items: center; gap: 14px; }
+
+    .btn-menu {
+      background: #f0f0f0; border: none; border-radius: 8px;
+      width: 36px; height: 36px; cursor: pointer; font-size: 1.1rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .btn-menu:hover { background: #e0e0e0; }
+
+    .topbar h1 { font-size: 1.1rem; font-weight: 700; }
+
+    .topbar-user { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; font-weight: 600; }
+
+    .avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--red), var(--red-dark));
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; font-size: 0.82rem;
+    }
+
+    .content { padding: 24px 28px; flex: 1; }
+
+    /* ── PÁGINAS ── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── KPI CARDS ── */
+    .kpi-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 16px; margin-bottom: 24px; }
+
+    .kpi-card {
+      background: var(--white); border-radius: 12px; padding: 18px 22px;
+      box-shadow: var(--shadow); border-top: 4px solid var(--red);
+    }
+    .kpi-card .label { font-size: 0.72rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+    .kpi-card .value { font-size: 1.9rem; font-weight: 800; }
+    .kpi-card .sub { font-size: 0.72rem; color: var(--text-light); margin-top: 2px; }
+
+    /* ── SECTION HEADER ── */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+    .section-header h2 { font-size: 1rem; font-weight: 700; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      padding: 9px 18px; border-radius: 8px;
+      font-family: 'Montserrat', sans-serif; font-size: 0.82rem; font-weight: 700;
+      cursor: pointer; border: none; transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+    }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-red { background: linear-gradient(135deg, var(--red), var(--red-dark)); color: #fff; box-shadow: 0 4px 12px rgba(140,0,0,0.3); }
+    .btn-red:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(140,0,0,0.4); }
+    .btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text); }
+    .btn-outline:hover { border-color: var(--red); color: var(--red); }
+    .btn-sm { padding: 5px 10px; font-size: 0.72rem; }
+    .btn-icon { padding: 5px 8px; font-size: 0.85rem; border-radius: 6px; }
+    .btn-view   { background: #e8f4fd; color: #1a6fa8; border: none; }
+    .btn-edit   { background: #fff8e1; color: #b8860b; border: none; }
+    .btn-delete { background: #fce8e8; color: var(--red); border: none; }
+    .btn-view:hover   { background: #d0eafb; }
+    .btn-edit:hover   { background: #fff0b0; }
+    .btn-delete:hover { background: #f9d0d0; }
+
+    /* ── TABLE ── */
+    .table-wrap { background: var(--white); border-radius: 12px; box-shadow: var(--shadow); overflow: auto; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.79rem; min-width: 1300px; }
+
+    thead th {
+      background: #f8f8f8; padding: 11px 12px; text-align: left;
+      font-weight: 700; font-size: 0.7rem; color: var(--text-light);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+
+    tbody tr { border-bottom: 1px solid #f0f0f0; transition: background 0.15s; }
+    tbody tr:hover { background: #fafafa; }
+    tbody td { padding: 10px 12px; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+
+    .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; }
+    .badge-green { background: #e6f9f0; color: #1a7a4a; }
+    .badge-red   { background: #fce8e8; color: #cc0000; }
+
+    .actions-cell { display: flex; gap: 5px; white-space: nowrap; }
+
+    /* ── MODALS ── */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+      z-index: 400; align-items: flex-start; justify-content: center;
+      padding: 40px 20px; overflow-y: auto;
+    }
+    .overlay.open { display: flex; }
+
+    .modal {
+      background: var(--white); border-radius: 16px; padding: 32px 36px;
+      width: min(720px, 100%);
+      box-shadow: 0 24px 70px rgba(0,0,0,0.25);
+      animation: popIn 0.3s cubic-bezier(.22,.68,0,1.2) both;
+    }
+    @keyframes popIn { from { opacity:0; transform:scale(.95) translateY(20px); } to { opacity:1; transform:scale(1) translateY(0); } }
+
+    .modal h2 { color: var(--red); font-size: 1.2rem; font-weight: 800; margin-bottom: 22px; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group.full { grid-column: 1/-1; }
+    .form-group label { font-size: 0.7rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-group input, .form-group select, .form-group textarea {
+      padding: 9px 11px; border: 1.5px solid var(--border); border-radius: 8px;
+      font-family: 'Montserrat', sans-serif; font-size: 0.83rem; color: var(--text);
+      outline: none; transition: border-color 0.2s, box-shadow 0.2s; background: #fafafa;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      border-color: var(--red); box-shadow: 0 0 0 3px rgba(204,0,0,0.08); background: #fff;
+    }
+    .form-group textarea { resize: vertical; min-height: 72px; }
+    .form-group input[type="file"] { padding: 6px 11px; cursor: pointer; }
+    .tiempo-display { padding: 9px 11px; background: #f0f0f0; border-radius: 8px; font-size: 0.83rem; font-weight: 600; border: 1.5px solid var(--border); }
+
+    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
+
+    /* ── VER CASO ── */
+    .view-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .view-item { display: flex; flex-direction: column; gap: 3px; }
+    .view-item.full { grid-column: 1/-1; }
+    .view-item .vi-label { font-size: 0.68rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
+    .view-item .vi-val { font-size: 0.88rem; font-weight: 600; color: var(--text); padding: 8px 10px; background: #f8f8f8; border-radius: 8px; }
+
+    /* ── KPI BARS ── */
+    .kpi-bar-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid #f0f0f0; }
+    .kpi-bar-row:last-child { border-bottom: none; }
+    .kpi-name { width: 170px; font-weight: 600; font-size: 0.84rem; }
+    .kpi-bar-bg { flex: 1; height: 9px; background: #f0f0f0; border-radius: 10px; overflow: hidden; }
+    .kpi-bar-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, var(--red), var(--red-light)); transition: width 1s cubic-bezier(.22,.68,0,1.2); }
+    .kpi-pct { width: 46px; text-align: right; font-weight: 800; font-size: 0.88rem; color: var(--red); }
+
+    .kpi-section { background: var(--white); border-radius: 12px; padding: 22px; box-shadow: var(--shadow); }
+
+    /* ── EMPTY ── */
+    .empty { text-align: center; padding: 44px; color: var(--text-light); font-size: 0.88rem; }
+    .empty .emoji { font-size: 2.4rem; margin-bottom: 10px; }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed; bottom: 26px; left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: #222; color: #fff; padding: 10px 22px; border-radius: 8px;
+      font-size: 0.82rem; opacity: 0; pointer-events: none; z-index: 999;
+      transition: opacity 0.3s, transform 0.3s; white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<!-- OVERLAY SIDEBAR -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-text">
+      <h2>KPI Sistema</h2>
+      <span>Panel de Control</span>
+    </div>
+    <button class="btn-close-sidebar" onclick="toggleSidebar()">✕</button>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Principal</div>
+    <a class="nav-item active" onclick="showPage('inicio')">
+      <span class="nav-icon">🏠</span><span>Inicio</span>
+    </a>
+    <a class="nav-item" onclick="showPage('kpi')">
+      <span class="nav-icon">📊</span><span>KPI</span>
+    </a>
+    <div class="nav-section">Gestión</div>
+    <a class="nav-item" onclick="showPage('operadores')">
+      <span class="nav-icon">👥</span><span>Operadores</span>
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <a class="nav-item" onclick="cerrarSesion()" style="color:rgba(255,100,100,0.8)">
+      <span class="nav-icon">🚪</span><span>Cerrar Sesión</span>
+    </a>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main" id="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="btn-menu" onclick="toggleSidebar()">☰</button>
+      <h1 id="pageTitle">Inicio — Registro de Casos</h1>
+    </div>
+    <div class="topbar-user">
+      <div class="avatar" id="userAvatar">U</div>
+      <span id="userName">Usuario</span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- INICIO -->
+    <div class="page active" id="page-inicio">
+      <div class="kpi-cards">
+        <div class="kpi-card">
+          <div class="label">Total Casos</div>
+          <div class="value" id="kpiTotal">0</div>
+          <div class="sub">registrados</div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">A Tiempo</div>
+          <div class="value" id="kpiATiempo" style="color:#1a7a4a">0</div>
+          <div class="sub">sin atraso</div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">Con Atraso</div>
+          <div class="value" id="kpiAtraso" style="color:#cc0000">0</div>
+          <div class="sub">con SLA</div>
+        </div>
+        <div class="kpi-card">
+          <div class="label">Cumplimiento</div>
+          <div class="value" id="kpiCumplimiento">0%</div>
+          <div class="sub">promedio general</div>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <h2>Casos Registrados</h2>
+        <button class="btn btn-red" onclick="abrirModalCaso()">+ Nuevo Caso</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Acciones</th>
+              <th>Enlace</th>
+              <th>Operador</th>
+              <th>Dirección</th>
+              <th>Año</th>
+              <th>Mes</th>
+              <th>Sem.</th>
+              <th>Días</th>
+              <th>F. Atención</th>
+              <th>F. Instalación</th>
+              <th>T. Total</th>
+              <th>Pausa</th>
+              <th>SLA</th>
+              <th>Coordenadas</th>
+              <th>Equipo</th>
+              <th>Fotos</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaCasos">
+            <tr><td colspan="17"><div class="empty"><div class="emoji">📋</div>No hay casos registrados aún</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- KPI -->
+    <div class="page" id="page-kpi">
+      <div class="kpi-cards" id="kpiCardsOp"></div>
+      <div class="section-header"><h2>Cumplimiento por Operador</h2></div>
+      <div class="kpi-section">
+        <div id="kpiBars"><div class="empty"><div class="emoji">📊</div>No hay datos aún</div></div>
+      </div>
+    </div>
+
+    <!-- OPERADORES -->
+    <div class="page" id="page-operadores">
+      <div class="section-header">
+        <h2>Operadores Registrados</h2>
+        <button class="btn btn-red" onclick="abrirModalOperador()">+ Registrar Operador</button>
+      </div>
+      <div class="table-wrap">
+        <table style="min-width:400px">
+          <thead>
+            <tr><th>Acciones</th><th>Nombre</th><th>Email</th><th>Registrado</th></tr>
+          </thead>
+          <tbody id="tablaOperadores">
+            <tr><td colspan="4"><div class="empty"><div class="emoji">👥</div>No hay operadores</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL NUEVO / EDITAR CASO -->
+<div class="overlay" id="overlayCaso" onclick="cerrarFuera(event,'overlayCaso')">
+  <div class="modal">
+    <h2 id="modalCasoTitle">📋 Registrar Nuevo Caso</h2>
+    <input type="hidden" id="cId"/>
+    <div class="form-grid">
+      <div class="form-group"><label>Enlace</label><input type="text" id="cEnlace" placeholder="ID o número"/></div>
+      <div class="form-group"><label>Operador Asignado</label><select id="cOperador"><option value="">Seleccionar...</option></select></div>
+      <div class="form-group full"><label>Dirección</label><input type="text" id="cDireccion" placeholder="Dirección completa"/></div>
+      <div class="form-group"><label>Año</label><select id="cAnio"><option value="2026">2026</option><option value="2027">2027</option></select></div>
+      <div class="form-group"><label>Mes</label>
+        <select id="cMes"><option value="">Seleccionar...</option>
+          <option>Enero</option><option>Febrero</option><option>Marzo</option><option>Abril</option>
+          <option>Mayo</option><option>Junio</option><option>Julio</option><option>Agosto</option>
+          <option>Septiembre</option><option>Octubre</option><option>Noviembre</option><option>Diciembre</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Semana (1–54)</label>
+        <select id="cSemana"><option value="">Seleccionar...</option></select>
+      </div>
+      <div class="form-group"><label>Días (1–31)</label>
+        <select id="cDias"><option value="">Seleccionar...</option></select>
+      </div>
+      <div class="form-group"><label>Fecha Atención</label><input type="datetime-local" id="cFechaAtencion" oninput="calcTiempo()"/></div>
+      <div class="form-group"><label>Fecha Instalación</label><input type="datetime-local" id="cFechaInstalacion" oninput="calcTiempo()"/></div>
+      <div class="form-group"><label>Tiempo Total (auto)</label><div class="tiempo-display" id="cTiempoTotal">—</div></div>
+      <div class="form-group"><label>Pausa (horas)</label><input type="number" id="cPausa" placeholder="0" min="0" step="0.5" oninput="calcTiempo()"/></div>
+      <div class="form-group"><label>SLA (auto)</label><div class="tiempo-display" id="cSLA">—</div></div>
+      <div class="form-group full"><label>Coordenadas</label><input type="text" id="cCoordenadas" placeholder="Ej: 14.0818, -87.2068"/></div>
+      <div class="form-group full"><label>Equipo Instalado</label><input type="text" id="cEquipo" placeholder="Descripción del equipo"/></div>
+      <div class="form-group"><label>Foto Retiro de Equipo</label><input type="file" id="cFotoRetiro" accept="image/*"/></div>
+      <div class="form-group"><label>Foto Equipo Instalado</label><input type="file" id="cFotoInstalado" accept="image/*"/></div>
+      <div class="form-group full"><label>Observaciones</label><textarea id="cObservaciones" placeholder="Notas adicionales..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('overlayCaso')">Cancelar</button>
+      <button class="btn btn-red" id="btnGuardarCaso" onclick="guardarCaso()">Guardar Caso</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VER CASO -->
+<div class="overlay" id="overlayVer" onclick="cerrarFuera(event,'overlayVer')">
+  <div class="modal">
+    <h2>👁 Detalle del Caso</h2>
+    <div class="view-grid" id="verGrid"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('overlayVer')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL OPERADOR -->
+<div class="overlay" id="overlayOp" onclick="cerrarFuera(event,'overlayOp')">
+  <div class="modal" style="max-width:440px">
+    <h2>👤 Registrar Operador</h2>
+    <div class="form-grid" style="grid-template-columns:1fr">
+      <div class="form-group"><label>Nombre Completo</label><input type="text" id="opNombre" placeholder="Nombre del operador"/></div>
+      <div class="form-group"><label>Email (opcional)</label><input type="email" id="opEmail" placeholder="correo@empresa.com"/></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('overlayOp')">Cancelar</button>
+      <button class="btn btn-red" id="btnGuardarOp" onclick="guardarOperador()">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Supabase ──
+  const { createClient } = supabase;
+  const sb = createClient('https://suukuinxfotpbipyoxaa.supabase.co','sb_publishable_kRHTpUx9INkuG-CIrrp0_Q_yt8VuUtK');
+  const API = 'https://suukuinxfotpbipyoxaa.supabase.co/rest/v1';
+  const KEY = 'sb_publishable_kRHTpUx9INkuG-CIrrp0_Q_yt8VuUtK';
+  const H = { 'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+KEY };
+
+  // Poblar selects semana/dias
+  const selSem = document.getElementById('cSemana');
+  const selDia = document.getElementById('cDias');
+  for(let i=1;i<=54;i++) selSem.innerHTML += `<option>${i}</option>`;
+  for(let i=1;i<=31;i++) selDia.innerHTML += `<option>${i}</option>`;
+
+  // ── Session ──
+  const sess = JSON.parse(sessionStorage.getItem('kpi_session') || localStorage.getItem('kpi_session') || '{}');
+  if(sess.nombre){ document.getElementById('userName').textContent=sess.nombre; document.getElementById('userAvatar').textContent=sess.nombre.charAt(0).toUpperCase(); }
+
+  // ── Toast ──
+  function toast(msg,color){ const el=document.getElementById('toast'); el.textContent=msg; el.style.background=color||'#222'; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),3500); }
+
+  // ── Sidebar ──
+  let sidebarOpen = true;
+  function toggleSidebar(){
+    sidebarOpen = !sidebarOpen;
+    document.getElementById('sidebar').classList.toggle('hidden', !sidebarOpen);
+    document.getElementById('main').classList.toggle('full', !sidebarOpen);
+    document.getElementById('sidebarOverlay').classList.toggle('show', sidebarOpen && window.innerWidth < 900);
+  }
+
+  // On mobile start closed
+  if(window.innerWidth < 900){ sidebarOpen=false; document.getElementById('sidebar').classList.add('hidden'); document.getElementById('main').classList.add('full'); }
+
+  // ── Nav ──
+  const titles = { inicio:'Inicio — Registro de Casos', kpi:'KPI — Cumplimiento', operadores:'Gestión de Operadores' };
+  function showPage(id){
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    document.getElementById('page-'+id).classList.add('active');
+    ['inicio','kpi','operadores'].forEach((p,i)=>{ if(p===id) document.querySelectorAll('.nav-item')[i].classList.add('active'); });
+    document.getElementById('pageTitle').textContent = titles[id];
+    if(id==='kpi') renderKPI();
+    if(id==='operadores') cargarOperadores();
+    if(window.innerWidth < 900 && sidebarOpen) toggleSidebar();
+  }
+
+  // ── Modals ──
+  function cerrarModal(id){ document.getElementById(id).classList.remove('open'); }
+  function cerrarFuera(e,id){ if(e.target.id===id) cerrarModal(id); }
+
+  function abrirModalCaso(data=null){
+    document.getElementById('modalCasoTitle').textContent = data ? '✏️ Editar Caso' : '📋 Registrar Nuevo Caso';
+    document.getElementById('btnGuardarCaso').textContent = data ? 'Actualizar' : 'Guardar Caso';
+    limpiarFormCaso();
+    cargarOperadoresSelect();
+    if(data){
+      document.getElementById('cId').value = data.id||'';
+      document.getElementById('cEnlace').value = data.enlace||'';
+      document.getElementById('cDireccion').value = data.direccion||'';
+      document.getElementById('cAnio').value = data.anio||'2026';
+      document.getElementById('cMes').value = data.mes||'';
+      document.getElementById('cSemana').value = data.semana||'';
+      document.getElementById('cDias').value = data.dias||'';
+      document.getElementById('cFechaAtencion').value = data.fecha_atencion ? data.fecha_atencion.slice(0,16) : '';
+      document.getElementById('cFechaInstalacion').value = data.fecha_instalacion ? data.fecha_instalacion.slice(0,16) : '';
+      document.getElementById('cPausa').value = data.pausa ? parseFloat(data.pausa) : '';
+      document.getElementById('cCoordenadas').value = data.coordenadas||'';
+      document.getElementById('cEquipo').value = data.equipo_instalado||'';
+      document.getElementById('cObservaciones').value = data.observaciones||'';
+      setTimeout(()=>{ document.getElementById('cOperador').value = data.operador_id||''; calcTiempo(); },300);
+    }
+    document.getElementById('overlayCaso').classList.add('open');
+  }
+
+  function abrirModalOperador(){ document.getElementById('overlayOp').classList.add('open'); }
+
+  // ── Calcular tiempo ──
+  const SLA_LIMITE = 8;
+  function calcTiempo(){
+    const fa=document.getElementById('cFechaAtencion').value;
+    const fi=document.getElementById('cFechaInstalacion').value;
+    const pausa=parseFloat(document.getElementById('cPausa').value)||0;
+    if(!fa||!fi){ document.getElementById('cTiempoTotal').textContent='—'; document.getElementById('cSLA').textContent='—'; return; }
+    const diff=(new Date(fi)-new Date(fa))/3600000;
+    const neto=diff-pausa;
+    const fmt=h=>{const hh=Math.floor(Math.abs(h));const mm=Math.round((Math.abs(h)-hh)*60);return `${hh}h ${mm}m`;};
+    document.getElementById('cTiempoTotal').textContent = neto>=0 ? fmt(neto) : 'Fechas inválidas';
+    const slaEl=document.getElementById('cSLA');
+    if(neto>SLA_LIMITE){ slaEl.textContent=fmt(neto-SLA_LIMITE)+' atraso'; slaEl.style.color='#cc0000'; }
+    else { slaEl.textContent='A tiempo ✓'; slaEl.style.color='#1a7a4a'; }
+  }
+
+  // ── Cargar ops en select ──
+  async function cargarOperadoresSelect(){
+    try{
+      const res=await fetch(`${API}/operadores?select=id,nombre&order=nombre`,{headers:H});
+      const ops=await res.json();
+      const sel=document.getElementById('cOperador');
+      sel.innerHTML='<option value="">Seleccionar...</option>';
+      ops.forEach(o=>sel.innerHTML+=`<option value="${o.id}">${o.nombre}</option>`);
+    }catch(e){}
+  }
+
+  // ── Guardar / Actualizar caso ──
+  async function guardarCaso(){
+    const id=document.getElementById('cId').value;
+    const fa=document.getElementById('cFechaAtencion').value;
+    const fi=document.getElementById('cFechaInstalacion').value;
+    const op=document.getElementById('cOperador').value;
+    if(!op){ toast('Selecciona un operador.','#b00000'); return; }
+    if(!fa||!fi){ toast('Ingresa las fechas.','#b00000'); return; }
+    const pausa=parseFloat(document.getElementById('cPausa').value)||0;
+    const diff=(new Date(fi)-new Date(fa))/3600000;
+    const neto=diff-pausa;
+    const fmt=h=>{const hh=Math.floor(Math.abs(h));const mm=Math.round((Math.abs(h)-hh)*60);return `${hh}h ${mm}m`;};
+    const slaVal=neto>SLA_LIMITE?fmt(neto-SLA_LIMITE)+' atraso':'A tiempo';
+
+    const btn=document.getElementById('btnGuardarCaso');
+    btn.disabled=true; btn.textContent='Guardando...';
+
+    try{
+      let fotoRetiroUrl=null, fotoInstaladoUrl=null;
+      const fr=document.getElementById('cFotoRetiro').files[0];
+      const fi2=document.getElementById('cFotoInstalado').files[0];
+      if(fr){ const{data}=await sb.storage.from('fotos').upload(`retiro/${Date.now()}_${fr.name}`,fr); if(data) fotoRetiroUrl=sb.storage.from('fotos').getPublicUrl(data.path).data.publicUrl; }
+      if(fi2){ const{data}=await sb.storage.from('fotos').upload(`instalado/${Date.now()}_${fi2.name}`,fi2); if(data) fotoInstaladoUrl=sb.storage.from('fotos').getPublicUrl(data.path).data.publicUrl; }
+
+      const body={
+        enlace:document.getElementById('cEnlace').value,
+        operador_id:op, direccion:document.getElementById('cDireccion').value,
+        anio:parseInt(document.getElementById('cAnio').value), mes:document.getElementById('cMes').value,
+        semana:parseInt(document.getElementById('cSemana').value), dias:parseInt(document.getElementById('cDias').value),
+        fecha_atencion:fa, fecha_instalacion:fi,
+        tiempo_total:fmt(neto), pausa:pausa>0?pausa+'h':null, sla:slaVal,
+        coordenadas:document.getElementById('cCoordenadas').value,
+        equipo_instalado:document.getElementById('cEquipo').value,
+        observaciones:document.getElementById('cObservaciones').value,
+      };
+      if(fotoRetiroUrl) body.foto_retiro=fotoRetiroUrl;
+      if(fotoInstaladoUrl) body.foto_instalado=fotoInstaladoUrl;
+
+      let res;
+      if(id){
+        res=await fetch(`${API}/casos?id=eq.${id}`,{method:'PATCH',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(body)});
+      } else {
+        res=await fetch(`${API}/casos`,{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(body)});
+      }
+
+      if(res.ok){ toast(id?'Caso actualizado.':'¡Caso registrado!','#1a7a4a'); cerrarModal('overlayCaso'); limpiarFormCaso(); cargarCasos(); }
+      else { toast('Error al guardar.','#b00000'); }
+    }catch(e){ toast('Error de conexión.','#b00000'); }
+    finally{ btn.disabled=false; btn.textContent=id?'Actualizar':'Guardar Caso'; }
+  }
+
+  function limpiarFormCaso(){
+    document.getElementById('cId').value='';
+    ['cEnlace','cDireccion','cCoordenadas','cEquipo','cObservaciones','cPausa'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('cFechaAtencion').value=''; document.getElementById('cFechaInstalacion').value='';
+    document.getElementById('cTiempoTotal').textContent='—'; document.getElementById('cSLA').textContent='—';
+    document.getElementById('cSLA').style.color=''; document.getElementById('cOperador').value='';
+  }
+
+  // ── Ver caso ──
+  function verCaso(c){
+    const fmt=(label,val,full=false)=>`<div class="view-item${full?' full':''}"><div class="vi-label">${label}</div><div class="vi-val">${val||'—'}</div></div>`;
+    const fotos = [c.foto_retiro,c.foto_instalado].filter(Boolean).map(u=>`<a href="${u}" target="_blank" style="margin-right:8px">📷 Ver foto</a>`).join('') || '—';
+    document.getElementById('verGrid').innerHTML =
+      fmt('Enlace',c.enlace)+fmt('Operador',c.operadores?.nombre)+
+      fmt('Dirección',c.direccion,true)+
+      fmt('Año',c.anio)+fmt('Mes',c.mes)+fmt('Semana',c.semana)+fmt('Días',c.dias)+
+      fmt('Fecha Atención',c.fecha_atencion?new Date(c.fecha_atencion).toLocaleString('es'):'')+
+      fmt('Fecha Instalación',c.fecha_instalacion?new Date(c.fecha_instalacion).toLocaleString('es'):'')+
+      fmt('Tiempo Total',`<b>${c.tiempo_total||'—'}</b>`)+fmt('Pausa',c.pausa)+
+      fmt('SLA',`<span class="badge ${c.sla?.includes('atraso')?'badge-red':'badge-green'}">${c.sla||'—'}</span>`)+
+      fmt('Coordenadas',c.coordenadas)+fmt('Equipo',c.equipo_instalado)+
+      `<div class="view-item full"><div class="vi-label">Fotos</div><div class="vi-val">${fotos}</div></div>`+
+      fmt('Observaciones',c.observaciones,true);
+    document.getElementById('overlayVer').classList.add('open');
+  }
+
+  // ── Eliminar caso ──
+  async function eliminarCaso(id){
+    if(!confirm('¿Eliminar este caso?')) return;
+    await fetch(`${API}/casos?id=eq.${id}`,{method:'DELETE',headers:H});
+    toast('Caso eliminado.','#333'); cargarCasos();
+  }
+
+  // ── Cargar casos ──
+  async function cargarCasos(){
+    try{
+      const res=await fetch(`${API}/casos?select=*,operadores(nombre)&order=created_at.desc`,{headers:H});
+      const casos=await res.json();
+      const tbody=document.getElementById('tablaCasos');
+      if(!casos.length){ tbody.innerHTML='<tr><td colspan="17"><div class="empty"><div class="emoji">📋</div>No hay casos registrados aún</div></td></tr>'; actualizarKPICards([]); return; }
+      tbody.innerHTML=casos.map(c=>`
+        <tr>
+          <td>
+            <div class="actions-cell">
+              <button class="btn btn-icon btn-view" title="Ver" onclick='verCaso(${JSON.stringify(c).replace(/'/g,"&#39;")})'>👁</button>
+              <button class="btn btn-icon btn-edit" title="Editar" onclick='abrirModalCaso(${JSON.stringify(c).replace(/'/g,"&#39;")})'>✏️</button>
+              <button class="btn btn-icon btn-delete" title="Eliminar" onclick="eliminarCaso('${c.id}')">🗑️</button>
+            </div>
+          </td>
+          <td>${c.enlace||'—'}</td>
+          <td><b>${c.operadores?.nombre||'—'}</b></td>
+          <td title="${c.direccion||''}">${(c.direccion||'—').substring(0,22)}${c.direccion?.length>22?'...':''}</td>
+          <td>${c.anio||'—'}</td>
+          <td>${c.mes||'—'}</td>
+          <td>${c.semana||'—'}</td>
+          <td>${c.dias||'—'}</td>
+          <td>${c.fecha_atencion?new Date(c.fecha_atencion).toLocaleString('es'):'—'}</td>
+          <td>${c.fecha_instalacion?new Date(c.fecha_instalacion).toLocaleString('es'):'—'}</td>
+          <td><b>${c.tiempo_total||'—'}</b></td>
+          <td>${c.pausa||'—'}</td>
+          <td><span class="badge ${c.sla?.includes('atraso')?'badge-red':'badge-green'}">${c.sla||'—'}</span></td>
+          <td>${c.coordenadas||'—'}</td>
+          <td title="${c.equipo_instalado||''}">${(c.equipo_instalado||'—').substring(0,18)}</td>
+          <td>${[c.foto_retiro,c.foto_instalado].filter(Boolean).map(u=>`<a href="${u}" target="_blank">📷</a>`).join(' ')||'—'}</td>
+          <td title="${c.observaciones||''}">${(c.observaciones||'—').substring(0,22)}</td>
+        </tr>
+      `).join('');
+      actualizarKPICards(casos);
+    }catch(e){}
+  }
+
+  function actualizarKPICards(casos){
+    const total=casos.length, atraso=casos.filter(c=>c.sla?.includes('atraso')).length;
+    const aTiempo=total-atraso, pct=total?Math.round((aTiempo/total)*100):0;
+    document.getElementById('kpiTotal').textContent=total;
+    document.getElementById('kpiATiempo').textContent=aTiempo;
+    document.getElementById('kpiAtraso').textContent=atraso;
+    document.getElementById('kpiCumplimiento').textContent=pct+'%';
+  }
+
+  // ── KPI ──
+  async function renderKPI(){
+    try{
+      const res=await fetch(`${API}/casos?select=sla,operadores(nombre)`,{headers:H});
+      const casos=await res.json();
+      const ops={};
+      casos.forEach(c=>{ const n=c.operadores?.nombre||'Sin asignar'; if(!ops[n]) ops[n]={total:0,aTiempo:0}; ops[n].total++; if(!c.sla?.includes('atraso')) ops[n].aTiempo++; });
+      const barsEl=document.getElementById('kpiBars'), cardsEl=document.getElementById('kpiCardsOp');
+      if(!Object.keys(ops).length){ barsEl.innerHTML='<div class="empty"><div class="emoji">📊</div>No hay datos aún</div>'; cardsEl.innerHTML=''; return; }
+      cardsEl.innerHTML=Object.entries(ops).map(([n,d])=>{ const pct=Math.round((d.aTiempo/d.total)*100); return `<div class="kpi-card"><div class="label">${n}</div><div class="value" style="color:${pct>=80?'#1a7a4a':'#cc0000'}">${pct}%</div><div class="sub">${d.aTiempo}/${d.total} a tiempo</div></div>`; }).join('');
+      barsEl.innerHTML=Object.entries(ops).map(([n,d])=>{ const pct=Math.round((d.aTiempo/d.total)*100); return `<div class="kpi-bar-row"><div class="kpi-name">${n}</div><div class="kpi-bar-bg"><div class="kpi-bar-fill" style="width:${pct}%"></div></div><div class="kpi-pct">${pct}%</div></div>`; }).join('');
+    }catch(e){}
+  }
+
+  // ── Operadores ──
+  async function cargarOperadores(){
+    try{
+      const res=await fetch(`${API}/operadores?select=*&order=nombre`,{headers:H});
+      const ops=await res.json();
+      const tbody=document.getElementById('tablaOperadores');
+      if(!ops.length){ tbody.innerHTML='<tr><td colspan="4"><div class="empty"><div class="emoji">👥</div>No hay operadores</div></td></tr>'; return; }
+      tbody.innerHTML=ops.map(o=>`
+        <tr>
+          <td><button class="btn btn-icon btn-delete" onclick="eliminarOperador('${o.id}')">🗑️</button></td>
+          <td><b>${o.nombre}</b></td>
+          <td>${o.email||'—'}</td>
+          <td>${new Date(o.created_at).toLocaleDateString('es')}</td>
+        </tr>
+      `).join('');
+    }catch(e){}
+  }
+
+  async function guardarOperador(){
+    const nombre=document.getElementById('opNombre').value.trim();
+    const email=document.getElementById('opEmail').value.trim();
+    if(!nombre){ toast('Ingresa el nombre.','#b00000'); return; }
+    const btn=document.getElementById('btnGuardarOp'); btn.disabled=true; btn.textContent='Guardando...';
+    try{
+      const res=await fetch(`${API}/operadores`,{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify({nombre,email:email||null})});
+      if(res.ok){ toast('Operador registrado.','#1a7a4a'); cerrarModal('overlayOp'); document.getElementById('opNombre').value=''; document.getElementById('opEmail').value=''; cargarOperadores(); }
+      else { toast('Error al registrar.','#b00000'); }
+    }catch(e){ toast('Error.','#b00000'); }
+    finally{ btn.disabled=false; btn.textContent='Registrar'; }
+  }
+
+  async function eliminarOperador(id){
+    if(!confirm('¿Eliminar este operador?')) return;
+    await fetch(`${API}/operadores?id=eq.${id}`,{method:'DELETE',headers:H});
+    toast('Operador eliminado.','#333'); cargarOperadores();
+  }
+
+  function cerrarSesion(){ sessionStorage.clear(); localStorage.removeItem('kpi_session'); window.location.href='index.html'; }
+
+  // Init
+  cargarCasos();
+</script>
+</body>
+</html>

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KPI Sistema — Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Montserrat', sans-serif;
+      background: radial-gradient(ellipse at 60% 40%, #e80000 0%, #a00000 50%, #6b0000 100%);
+    }
+
+    .card {
+      background: linear-gradient(160deg, #f5f5f5 0%, #dcdcdc 100%);
+      border-radius: 20px;
+      padding: 48px 44px;
+      width: min(440px, 94vw);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      animation: rise 0.6s cubic-bezier(.22,.68,0,1.2) both;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(30px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .card h1 { color: #cc0000; font-size: 1.75rem; font-weight: 800; }
+
+    .fields { width: 100%; display: flex; flex-direction: column; gap: 13px; }
+
+    .input-wrap { position: relative; width: 100%; }
+    .input-wrap input {
+      width: 100%;
+      padding: 13px 16px 13px 42px;
+      border: none;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.85);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 0.88rem;
+      color: #333;
+      outline: none;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.08);
+      transition: box-shadow 0.2s, background 0.2s;
+    }
+    .input-wrap input::placeholder { color: #aaa; }
+    .input-wrap input:focus {
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(180,0,0,0.22), inset 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .ico {
+      position: absolute; left: 13px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.95rem; color: #ccc;
+      pointer-events: none; transition: color 0.2s;
+    }
+    .input-wrap:focus-within .ico { color: #cc0000; }
+
+    .btn-primary {
+      width: 60%;
+      padding: 13px;
+      background: linear-gradient(135deg, #cc0000, #900000);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(140,0,0,0.4);
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(140,0,0,0.5); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    .forgot { font-size: 0.75rem; color: #999; align-self: flex-end; cursor: pointer; }
+    .forgot:hover { color: #cc0000; text-decoration: underline; }
+
+    .divider {
+      width: 100%; display: flex; align-items: center;
+      gap: 10px; color: #bbb; font-size: 0.75rem; font-weight: 600;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px; background: #ccc;
+    }
+
+    .oauth-btns { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+
+    .btn-oauth {
+      width: 100%; padding: 11px 16px;
+      border: 1.5px solid #ddd; border-radius: 8px;
+      background: #fff; font-family: 'Montserrat', sans-serif;
+      font-size: 0.85rem; font-weight: 600; color: #444;
+      cursor: pointer; display: flex; align-items: center;
+      justify-content: center; gap: 10px;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+    }
+    .btn-oauth:hover { border-color: #aaa; box-shadow: 0 3px 12px rgba(0,0,0,0.1); transform: translateY(-1px); }
+    .btn-oauth:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .btn-oauth img { width: 20px; height: 20px; }
+
+    .create-row { font-size: 0.8rem; color: #888; }
+    .create-row a { color: #cc0000; font-weight: 700; cursor: pointer; }
+    .create-row a:hover { text-decoration: underline; }
+
+    /* MODAL */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+      z-index: 100; align-items: center; justify-content: center;
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      background: linear-gradient(160deg, #f5f5f5 0%, #dcdcdc 100%);
+      border-radius: 16px; padding: 44px 40px;
+      width: min(400px, 92vw);
+      display: flex; flex-direction: column;
+      align-items: center; gap: 18px;
+      box-shadow: 0 24px 70px rgba(0,0,0,0.4);
+      animation: popIn 0.3s cubic-bezier(.22,.68,0,1.2) both;
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.9) translateY(20px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal h2 { color: #cc0000; font-size: 1.5rem; font-weight: 800; }
+    .back-link { font-size: 0.78rem; color: #999; cursor: pointer; }
+    .back-link:hover { color: #cc0000; }
+
+    /* TOAST */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: #222; color: #fff;
+      padding: 10px 22px; border-radius: 8px;
+      font-size: 0.82rem; opacity: 0;
+      pointer-events: none; z-index: 999;
+      transition: opacity 0.3s, transform 0.3s;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>Iniciar Sesión</h1>
+
+    <div class="fields">
+      <div class="input-wrap">
+        <span class="ico">✉</span>
+        <input type="email" id="loginEmail" placeholder="Email" autocomplete="username"/>
+      </div>
+      <div class="input-wrap">
+        <span class="ico">🔒</span>
+        <input type="password" id="loginPass" placeholder="Password" autocomplete="current-password"/>
+      </div>
+    </div>
+
+    <span class="forgot">¿Olvidaste tu contraseña?</span>
+    <button class="btn-primary" id="btnLogin" onclick="handleLogin()">ACCEDER</button>
+
+    <div class="divider">o continúa con</div>
+
+    <div class="oauth-btns">
+      <button class="btn-oauth" id="btnGoogle" onclick="loginGoogle()">
+        <img src="https://www.google.com/favicon.ico" alt="Google"/>
+        Continuar con Google
+      </button>
+      <button class="btn-oauth" id="btnMicrosoft" onclick="loginMicrosoft()">
+        <img src="https://www.microsoft.com/favicon.ico" alt="Microsoft"/>
+        Continuar con Outlook / Microsoft
+      </button>
+    </div>
+
+    <p class="create-row">¿No tienes cuenta? <a onclick="abrirModal()">Crear Cuenta</a></p>
+  </div>
+
+  <!-- MODAL -->
+  <div class="overlay" id="overlay" onclick="cerrarFuera(event)">
+    <div class="modal">
+      <h2>Crear Cuenta</h2>
+      <div class="fields" style="display:flex;flex-direction:column;gap:14px;">
+        <div class="input-wrap">
+          <span class="ico">👤</span>
+          <input type="text" id="regNombre" placeholder="Nombre completo"/>
+        </div>
+        <div class="input-wrap">
+          <span class="ico">✉</span>
+          <input type="email" id="regEmail" placeholder="Email"/>
+        </div>
+        <div class="input-wrap">
+          <span class="ico">🔒</span>
+          <input type="password" id="regPass" placeholder="Contraseña (mín. 6 caracteres)"/>
+        </div>
+      </div>
+      <button class="btn-primary" id="btnReg" style="width:100%;" onclick="handleRegistro()">CREAR CUENTA</button>
+      <span class="back-link" onclick="cerrarModal()">← Volver al inicio de sesión</span>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const SITE_URL = 'https://admirable-gumdrop-b630aa.netlify.app';
+
+    const { createClient } = supabase;
+    const sb = createClient(
+      'https://suukuinxfotpbipyoxaa.supabase.co',
+      'sb_publishable_kRHTpUx9INkuG-CIrrp0_Q_yt8VuUtK'
+    );
+
+    const API_URL = 'https://suukuinxfotpbipyoxaa.supabase.co/rest/v1';
+    const API_KEY = 'sb_publishable_kRHTpUx9INkuG-CIrrp0_Q_yt8VuUtK';
+    const hdrs = {
+      'Content-Type': 'application/json',
+      'apikey': API_KEY,
+      'Authorization': 'Bearer ' + API_KEY
+    };
+
+    function toast(msg, color) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.style.background = color || '#222';
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 3500);
+    }
+
+    function abrirModal()  { document.getElementById('overlay').classList.add('open'); }
+    function cerrarModal() { document.getElementById('overlay').classList.remove('open'); }
+    function cerrarFuera(e){ if (e.target.id === 'overlay') cerrarModal(); }
+
+    // Login email/pass
+    async function handleLogin() {
+      const email = document.getElementById('loginEmail').value.trim();
+      const pass  = document.getElementById('loginPass').value;
+      if (!email || !pass) { toast('Completa todos los campos.', '#b00000'); return; }
+
+      const btn = document.getElementById('btnLogin');
+      btn.disabled = true; btn.textContent = 'Verificando...';
+
+      try {
+        const res  = await fetch(`${API_URL}/usuarios?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(pass)}&select=id,nombre,email`, { headers: hdrs });
+        const data = await res.json();
+        if (data && data.length > 0) {
+          sessionStorage.setItem('kpi_session', JSON.stringify(data[0]));
+          toast('¡Bienvenido, ' + data[0].nombre + '!', '#1a7a1a');
+          setTimeout(() => { toast('Cargando dashboard... 🚀', '#333'); }, 1800);
+        } else {
+          toast('Email o contraseña incorrectos.', '#b00000');
+        }
+      } catch(e) {
+        toast('Error de conexión.', '#b00000');
+      } finally {
+        btn.disabled = false; btn.textContent = 'ACCEDER';
+      }
+    }
+
+    // Login Google
+    async function loginGoogle() {
+      const btn = document.getElementById('btnGoogle');
+      btn.disabled = true;
+      btn.innerHTML = '<img src="https://www.google.com/favicon.ico" style="width:20px"/> Redirigiendo...';
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: SITE_URL }
+      });
+      if (error) {
+        toast('Error: ' + error.message, '#b00000');
+        btn.disabled = false;
+        btn.innerHTML = '<img src="https://www.google.com/favicon.ico" style="width:20px"/> Continuar con Google';
+      }
+    }
+
+    // Login Microsoft
+    async function loginMicrosoft() {
+      const btn = document.getElementById('btnMicrosoft');
+      btn.disabled = true;
+      btn.innerHTML = '<img src="https://www.microsoft.com/favicon.ico" style="width:20px"/> Redirigiendo...';
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: 'azure',
+        options: { redirectTo: SITE_URL }
+      });
+      if (error) {
+        toast('Error: ' + error.message, '#b00000');
+        btn.disabled = false;
+        btn.innerHTML = '<img src="https://www.microsoft.com/favicon.ico" style="width:20px"/> Continuar con Outlook / Microsoft';
+      }
+    }
+
+    // Registro manual
+    async function handleRegistro() {
+      const nombre = document.getElementById('regNombre').value.trim();
+      const email  = document.getElementById('regEmail').value.trim();
+      const pass   = document.getElementById('regPass').value;
+      if (!nombre || !email || !pass) { toast('Completa todos los campos.', '#b00000'); return; }
+      if (pass.length < 6) { toast('La contraseña debe tener al menos 6 caracteres.', '#b00000'); return; }
+
+      const btn = document.getElementById('btnReg');
+      btn.disabled = true; btn.textContent = 'Creando cuenta...';
+
+      try {
+        const check = await fetch(`${API_URL}/usuarios?email=eq.${encodeURIComponent(email)}&select=id`, { headers: hdrs });
+        const existe = await check.json();
+        if (existe && existe.length > 0) { toast('Ese email ya está registrado.', '#b00000'); return; }
+
+        const res = await fetch(`${API_URL}/usuarios`, {
+          method: 'POST',
+          headers: { ...hdrs, 'Prefer': 'return=representation' },
+          body: JSON.stringify({ nombre, email, password: pass })
+        });
+
+        if (res.ok) {
+          toast('¡Cuenta creada para ' + nombre + '!', '#1a7a1a');
+          cerrarModal();
+          document.getElementById('loginEmail').value = email;
+          document.getElementById('regNombre').value  = '';
+          document.getElementById('regEmail').value   = '';
+          document.getElementById('regPass').value    = '';
+        } else {
+          toast('Error al crear la cuenta.', '#b00000');
+        }
+      } catch(e) {
+        toast('Error de conexión.', '#b00000');
+      } finally {
+        btn.disabled = false; btn.textContent = 'CREAR CUENTA';
+      }
+    }
+
+    // Enter key
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        if (document.getElementById('overlay').classList.contains('open')) handleRegistro();
+        else handleLogin();
+      }
+    });
+
+    // Verificar sesión OAuth al regresar
+    sb.auth.onAuthStateChange((event, session) => {
+      if (session && session.user) {
+        const user = session.user;
+        sessionStorage.setItem('kpi_session', JSON.stringify({
+          nombre: user.user_metadata?.full_name || user.email,
+          email: user.email,
+          id: user.id
+        }));
+        toast('¡Bienvenido, ' + (user.user_metadata?.full_name || user.email) + '!', '#1a7a1a');
+        setTimeout(() => { toast('Cargando dashboard... 🚀', '#333'); }, 1800);
+      }
+    });
+  </script>
+</body>
+</html>
