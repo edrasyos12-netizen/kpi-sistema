@@ -211,152 +211,133 @@
 
   <div class="toast" id="toast"></div>
 
-  <script>
-    const SITE_URL = 'https://kpi-sistema.vercel.app';
-    const DASHBOARD_URL = SITE_URL + '/dashboard.html';
-
-    const { createClient } = supabase;
-    const sb = createClient(
-      'https://suukuinxfotpbipyoxaa.supabase.co',
-      'sb_publishable_kRHTpUx9INkuG-CIrrp0_Q_yt8VuUtK'
-    );
-
-    const API_URL = 'https://suukuinxfotpbipyoxaa.supabase.co/rest/v1';
-    const API_KEY = 'sb_publishable_kRHTpUx9INkuG-CIrrp0_Q_yt8VuUtK';
-    const hdrs = {
-      'Content-Type': 'application/json',
-      'apikey': API_KEY,
-      'Authorization': 'Bearer ' + API_KEY
-    };
-
-    function toast(msg, color) {
-      const el = document.getElementById('toast');
-      el.textContent = msg; el.style.background = color || '#222';
-      el.classList.add('show');
-      setTimeout(() => el.classList.remove('show'), 3500);
-    }
-
-    function abrirModal()  { document.getElementById('overlay').classList.add('open'); }
-    function cerrarModal() { document.getElementById('overlay').classList.remove('open'); }
-    function cerrarFuera(e){ if (e.target.id === 'overlay') cerrarModal(); }
-
-    // ── Login email/pass ──
-    async function handleLogin() {
-      const email = document.getElementById('loginEmail').value.trim();
-      const pass  = document.getElementById('loginPass').value;
-      if (!email || !pass) { toast('Completa todos los campos.', '#b00000'); return; }
-
-      const btn = document.getElementById('btnLogin');
-      btn.disabled = true; btn.textContent = 'Verificando...';
-
-      try {
-        const res  = await fetch(`${API_URL}/usuarios?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(pass)}&select=id,nombre,email`, { headers: hdrs });
-        const data = await res.json();
-        if (data && data.length > 0) {
-          sessionStorage.setItem('kpi_session', JSON.stringify(data[0]));
-          toast('¡Bienvenido, ' + data[0].nombre + '!', '#1a7a1a');
-          setTimeout(() => { window.location.href = DASHBOARD_URL; }, 1200);
-        } else {
-          toast('Email o contraseña incorrectos.', '#b00000');
-          btn.disabled = false; btn.textContent = 'ACCEDER';
-        }
-      } catch(e) {
-        toast('Error de conexión.', '#b00000');
-        btn.disabled = false; btn.textContent = 'ACCEDER';
-      }
-    }
-
-    // ── Login Google ──
-    async function loginGoogle() {
-      const btn = document.getElementById('btnGoogle');
-      btn.disabled = true;
-      btn.innerHTML = '<img src="https://www.google.com/favicon.ico" style="width:20px"/> Redirigiendo...';
-      const { error } = await sb.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: DASHBOARD_URL }
-      });
-      if (error) {
-        toast('Error: ' + error.message, '#b00000');
-        btn.disabled = false;
-        btn.innerHTML = '<img src="https://www.google.com/favicon.ico" style="width:20px"/> Continuar con Google';
-      }
-    }
-
-    // ── Login Microsoft ──
-    async function loginMicrosoft() {
-      const btn = document.getElementById('btnMicrosoft');
-      btn.disabled = true;
-      btn.innerHTML = '<img src="https://www.microsoft.com/favicon.ico" style="width:20px"/> Redirigiendo...';
-      const { error } = await sb.auth.signInWithOAuth({
-        provider: 'azure',
-        options: { redirectTo: DASHBOARD_URL }
-      });
-      if (error) {
-        toast('Error: ' + error.message, '#b00000');
-        btn.disabled = false;
-        btn.innerHTML = '<img src="https://www.microsoft.com/favicon.ico" style="width:20px"/> Continuar con Outlook / Microsoft';
-      }
-    }
-
-    // ── Registro ──
-    async function handleRegistro() {
-      const nombre = document.getElementById('regNombre').value.trim();
-      const email  = document.getElementById('regEmail').value.trim();
-      const pass   = document.getElementById('regPass').value;
-      if (!nombre || !email || !pass) { toast('Completa todos los campos.', '#b00000'); return; }
-      if (pass.length < 6) { toast('La contraseña debe tener al menos 6 caracteres.', '#b00000'); return; }
-
-      const btn = document.getElementById('btnReg');
-      btn.disabled = true; btn.textContent = 'Creando cuenta...';
-
-      try {
-        const check = await fetch(`${API_URL}/usuarios?email=eq.${encodeURIComponent(email)}&select=id`, { headers: hdrs });
-        const existe = await check.json();
-        if (existe && existe.length > 0) { toast('Ese email ya está registrado.', '#b00000'); return; }
-
-        const res = await fetch(`${API_URL}/usuarios`, {
-          method: 'POST',
-          headers: { ...hdrs, 'Prefer': 'return=representation' },
-          body: JSON.stringify({ nombre, email, password: pass })
-        });
-
-        if (res.ok) {
-          toast('¡Cuenta creada para ' + nombre + '!', '#1a7a1a');
-          cerrarModal();
-          document.getElementById('loginEmail').value = email;
-          document.getElementById('regNombre').value  = '';
-          document.getElementById('regEmail').value   = '';
-          document.getElementById('regPass').value    = '';
-        } else {
-          toast('Error al crear la cuenta.', '#b00000');
-        }
-      } catch(e) {
-        toast('Error de conexión.', '#b00000');
-      } finally {
-        btn.disabled = false; btn.textContent = 'CREAR CUENTA';
-      }
-    }
-
-    // ── Enter key ──
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        if (document.getElementById('overlay').classList.contains('open')) handleRegistro();
-        else handleLogin();
-      }
-    });
-
-    // ── OAuth redirect handler ──
-    sb.auth.onAuthStateChange((event, session) => {
-      if (session && session.user) {
-        const user = session.user;
-        sessionStorage.setItem('kpi_session', JSON.stringify({
-          nombre: user.user_metadata?.full_name || user.email,
-          email: user.email,
-          id: user.id
-        }));
-        window.location.href = DASHBOARD_URL;
-      }
-    });
-  </script>
+  <script>const SITE_URL = 'https:
+ const DASHBOARD_URL = SITE_URL + '/dashboard.html';
+ const { createClient } = supabase;
+ const sb = createClient(
+ 'https:
+ 'sb_publishable_kRHTpUx9INkuG-CIrrp0_Q_yt8VuUtK'
+ );
+ const API_URL = 'https:
+ const API_KEY = 'sb_publishable_kRHTpUx9INkuG-CIrrp0_Q_yt8VuUtK';
+ const hdrs = {
+ 'Content-Type': 'application/json',
+ 'apikey': API_KEY,
+ 'Authorization': 'Bearer ' + API_KEY
+ };
+ function toast(msg, color) {
+ const el = document.getElementById('toast');
+ el.textContent = msg; el.style.background = color || '#222';
+ el.classList.add('show');
+ setTimeout(() => el.classList.remove('show'), 3500);
+ }
+ function abrirModal() { document.getElementById('overlay').classList.add('open'); }
+ function cerrarModal() { document.getElementById('overlay').classList.remove('open'); }
+ function cerrarFuera(e){ if (e.target.id === 'overlay') cerrarModal(); }
+ async function handleLogin() {
+ const email = document.getElementById('loginEmail').value.trim();
+ const pass = document.getElementById('loginPass').value;
+ if (!email || !pass) { toast('Completa todos los campos.', '#b00000'); return; }
+ const btn = document.getElementById('btnLogin');
+ btn.disabled = true; btn.textContent = 'Verificando...';
+ try {
+ const res = await fetch(`${API_URL}/usuarios?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(pass)}&select=id,nombre,email,rol`, { headers: hdrs });
+ const data = await res.json();
+ if (data && data.length > 0) {
+ sessionStorage.setItem('kpi_session', JSON.stringify(data[0]));
+ toast('¡Bienvenido, ' + data[0].nombre + '!', '#1a7a1a');
+ setTimeout(() => { window.location.href = DASHBOARD_URL; }, 1200);
+ } else {
+ toast('Email o contraseña incorrectos.', '#b00000');
+ btn.disabled = false; btn.textContent = 'ACCEDER';
+ }
+ } catch(e) {
+ toast('Error de conexión.', '#b00000');
+ btn.disabled = false; btn.textContent = 'ACCEDER';
+ }
+ }
+ async function loginGoogle() {
+ const btn = document.getElementById('btnGoogle');
+ btn.disabled = true;
+ btn.innerHTML = '<img src="https:
+ const { error } = await sb.auth.signInWithOAuth({
+ provider: 'google',
+ options: { redirectTo: DASHBOARD_URL }
+ });
+ if (error) {
+ toast('Error: ' + error.message, '#b00000');
+ btn.disabled = false;
+ btn.innerHTML = '<img src="https:
+ }
+ }
+ async function loginMicrosoft() {
+ const btn = document.getElementById('btnMicrosoft');
+ btn.disabled = true;
+ btn.innerHTML = '<img src="https:
+ const { error } = await sb.auth.signInWithOAuth({
+ provider: 'azure',
+ options: { redirectTo: DASHBOARD_URL }
+ });
+ if (error) {
+ toast('Error: ' + error.message, '#b00000');
+ btn.disabled = false;
+ btn.innerHTML = '<img src="https:
+ }
+ }
+ async function handleRegistro() {
+ const nombre = document.getElementById('regNombre').value.trim();
+ const email = document.getElementById('regEmail').value.trim();
+ const pass = document.getElementById('regPass').value;
+ if (!nombre || !email || !pass) { toast('Completa todos los campos.', '#b00000'); return; }
+ if (pass.length < 6) { toast('La contraseña debe tener al menos 6 caracteres.', '#b00000'); return; }
+ const btn = document.getElementById('btnReg');
+ btn.disabled = true; btn.textContent = 'Creando cuenta...';
+ try {
+ const check = await fetch(`${API_URL}/usuarios?email=eq.${encodeURIComponent(email)}&select=id`, { headers: hdrs });
+ const existe = await check.json();
+ if (existe && existe.length > 0) { toast('Ese email ya está registrado.', '#b00000'); return; }
+ const res = await fetch(`${API_URL}/usuarios`, {
+ method: 'POST',
+ headers: { ...hdrs, 'Prefer': 'return=representation' },
+ body: JSON.stringify({ nombre, email, password: pass })
+ });
+ if (res.ok) {
+ toast('¡Cuenta creada para ' + nombre + '!', '#1a7a1a');
+ cerrarModal();
+ document.getElementById('loginEmail').value = email;
+ document.getElementById('regNombre').value = '';
+ document.getElementById('regEmail').value = '';
+ document.getElementById('regPass').value = '';
+ } else {
+ toast('Error al crear la cuenta.', '#b00000');
+ }
+ } catch(e) {
+ toast('Error de conexión.', '#b00000');
+ } finally {
+ btn.disabled = false; btn.textContent = 'CREAR CUENTA';
+ }
+ }
+ document.addEventListener('keydown', e => {
+ if (e.key === 'Enter') {
+ if (document.getElementById('overlay').classList.contains('open')) handleRegistro();
+ else handleLogin();
+ }
+ });
+ sb.auth.onAuthStateChange((event, session) => {
+ if (event === 'SIGNED_IN' && session && session.user) {
+ const user = session.user;
+ sessionStorage.setItem('kpi_session', JSON.stringify({
+ nombre: user.user_metadata?.full_name || user.user_metadata?.name || user.email,
+ email: user.email,
+ id: user.id
+ }));
+ window.location.href = DASHBOARD_URL;
+ }
+ });
+ sb.auth.getSession().then(({ data }) => {
+ if (data?.session) {
+ sb.auth.signOut();
+ }
+ });</script>
 </body>
 </html>
