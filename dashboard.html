@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+   <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8"/>
@@ -6,6 +6,10 @@
   <title>KPI Sistema — Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -116,15 +120,16 @@
     .page.active { display: block; }
 
     /* ── KPI CARDS ── */
-    .kpi-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 16px; margin-bottom: 24px; }
+    .kpi-cards { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
 
     .kpi-card {
-      background: var(--white); border-radius: 12px; padding: 18px 22px;
-      box-shadow: var(--shadow); border-top: 4px solid var(--red);
+      background: var(--white); border-radius: 10px; padding: 12px 20px;
+      box-shadow: var(--shadow); border-top: 3px solid var(--red);
+      min-width: 160px;
     }
-    .kpi-card .label { font-size: 0.72rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
-    .kpi-card .value { font-size: 1.9rem; font-weight: 800; }
-    .kpi-card .sub { font-size: 0.72rem; color: var(--text-light); margin-top: 2px; }
+    .kpi-card .label { font-size: 0.65rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .kpi-card .value { font-size: 1.4rem; font-weight: 800; }
+    .kpi-card .sub { font-size: 0.68rem; color: var(--text-light); margin-top: 2px; }
 
     /* ── SECTION HEADER ── */
     .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
@@ -226,6 +231,25 @@
 
     .kpi-section { background: var(--white); border-radius: 12px; padding: 22px; box-shadow: var(--shadow); }
 
+    .tab-btn {
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1.5px solid #e0e0e0;
+      background: #fff;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: #666;
+    }
+    .tab-btn:hover { border-color: #aaa; }
+    .tab-btn.tab-active {
+      background: var(--red);
+      color: #fff;
+      border-color: var(--red);
+    }
+
     /* ── EMPTY ── */
     .empty { text-align: center; padding: 44px; color: var(--text-light); font-size: 0.88rem; }
     .empty .emoji { font-size: 2.4rem; margin-bottom: 10px; }
@@ -260,6 +284,9 @@
     <a class="nav-item active" onclick="showPage('inicio')">
       <span class="nav-icon">🏠</span><span>Inicio</span>
     </a>
+    <a class="nav-item" onclick="showPage('estados')">
+      <span class="nav-icon">🔖</span><span>Estados</span>
+    </a>
     <a class="nav-item" onclick="showPage('kpi')">
       <span class="nav-icon">📊</span><span>KPI</span>
     </a>
@@ -283,8 +310,13 @@
       <h1 id="pageTitle">Inicio — Registro de Casos</h1>
     </div>
     <div class="topbar-user">
-      <div class="avatar" id="userAvatar">U</div>
-      <span id="userName">Usuario</span>
+      <div style="display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="abrirModalUsuario()">
+        <div class="avatar" id="userAvatar">U</div>
+        <div style="display:flex;flex-direction:column;gap:1px;">
+          <span id="userName" style="font-weight:700;font-size:0.85rem;">Usuario</span>
+          <span id="userEmail" style="font-size:0.7rem;color:#999;font-weight:500;"></span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -292,32 +324,74 @@
 
     <!-- INICIO -->
     <div class="page active" id="page-inicio">
-      <div class="kpi-cards">
-        <div class="kpi-card">
-          <div class="label">Total Casos</div>
-          <div class="value" id="kpiTotal">0</div>
-          <div class="sub">registrados</div>
+      <div style="display:flex;gap:12px;margin-bottom:20px;align-items:flex-start;flex-wrap:wrap;">
+        <div class="kpi-cards" style="margin-bottom:0;flex-shrink:0;">
+          <div class="kpi-card">
+            <div class="label">Total Casos</div>
+            <div class="value" id="kpiTotal">0</div>
+            <div class="sub">registrados</div>
+          </div>
+          <div class="kpi-card" style="min-width:200px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+              <div class="label" style="margin-bottom:0;">CUMPLIMIENTO</div>
+              <button onclick="abrirMeta()" title="Definir meta" style="background:none;border:none;cursor:pointer;font-size:0.85rem;color:#888;" title="Configurar meta">⚙️</button>
+            </div>
+            <div class="value" id="kpiCumplimiento">0%</div>
+            <div class="sub" id="kpiMetaSub">promedio general</div>
+            <!-- Barra de progreso meta -->
+            <div id="kpiMetaBarra" style="display:none;margin-top:8px;">
+              <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:#888;margin-bottom:3px;">
+                <span id="kpiMetaLabel">Meta: 0 casos</span>
+                <span id="kpiMetaPct">0%</span>
+              </div>
+              <div style="background:#f0f0f0;border-radius:10px;height:6px;overflow:hidden;">
+                <div id="kpiMetaFill" style="height:100%;border-radius:10px;background:linear-gradient(90deg,#cc0000,#ff4444);width:0%;transition:width 0.8s;"></div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="kpi-card">
-          <div class="label">A Tiempo</div>
-          <div class="value" id="kpiATiempo" style="color:#1a7a4a">0</div>
-          <div class="sub">sin atraso</div>
-        </div>
-        <div class="kpi-card">
-          <div class="label">Con Atraso</div>
-          <div class="value" id="kpiAtraso" style="color:#cc0000">0</div>
-          <div class="sub">con SLA</div>
-        </div>
-        <div class="kpi-card">
-          <div class="label">Cumplimiento</div>
-          <div class="value" id="kpiCumplimiento">0%</div>
-          <div class="sub">promedio general</div>
+
+        <!-- GRÁFICO DE LÍNEAS -->
+        <div style="flex:1;min-width:260px;max-width:420px;background:#fff;border-radius:10px;padding:10px 14px;box-shadow:var(--shadow);border-top:3px solid var(--red);">
+          <div style="font-size:0.62rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">CASOS FINALIZADOS POR DÍA</div>
+          <div style="height:80px;position:relative;">
+            <canvas id="chartLineas"></canvas>
+          </div>
         </div>
       </div>
 
       <div class="section-header">
-        <h2>Casos Registrados</h2>
-        <button class="btn btn-red" onclick="abrirModalCaso()">+ Nuevo Caso</button>
+        <h2>Casos Finalizados</h2>
+        <button class="btn btn-outline btn-sm" onclick="exportarExcel()" style="background:#1a7a4a;color:#fff;border:none;">📥 Exportar Excel</button>
+      </div>
+
+      <!-- FILTROS -->
+      <div style="background:#fff;border-radius:12px;padding:14px 18px;margin-bottom:16px;box-shadow:var(--shadow);display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:0.75rem;font-weight:700;color:#888;">FILTRAR:</span>
+        <select id="fAnio" onchange="filtrarCasos()" style="padding:6px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.78rem;color:#333;outline:none;">
+          <option value="">Todos los años</option>
+        </select>
+        <select id="fMes" onchange="filtrarCasos()" style="padding:6px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.78rem;color:#333;outline:none;">
+          <option value="">Todos los meses</option>
+        </select>
+        <select id="fSemana" onchange="filtrarCasos()" style="padding:6px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.78rem;color:#333;outline:none;">
+          <option value="">Todas las semanas</option>
+        </select>
+        <select id="fDias" onchange="filtrarCasos()" style="padding:6px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.78rem;color:#333;outline:none;">
+          <option value="">Todos los días</option>
+        </select>
+        <select id="fOperador" onchange="filtrarCasos()" style="padding:6px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.78rem;color:#333;outline:none;">
+          <option value="">Todos los operadores</option>
+        </select>
+        <select id="fEstatus" onchange="filtrarCasos()" style="padding:6px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.78rem;color:#333;outline:none;">
+          <option value="">Todos los estatus</option>
+          <option value="Programado">🟣 Programado</option>
+          <option value="En Proceso">🟡 En Proceso</option>
+          <option value="Pausado">🟠 Pausado</option>
+          <option value="Finalizado">🟢 Finalizado</option>
+          <option value="Cancelado">🔴 Cancelado</option>
+        </select>
+        <button onclick="limpiarFiltros()" style="padding:6px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.75rem;font-weight:700;color:#888;background:#fff;cursor:pointer;">✕ Limpiar</button>
       </div>
 
       <div class="table-wrap">
@@ -325,6 +399,7 @@
           <thead>
             <tr>
               <th>Acciones</th>
+              <th>Estatus</th>
               <th>Enlace</th>
               <th>Operador</th>
               <th>Dirección</th>
@@ -344,7 +419,7 @@
             </tr>
           </thead>
           <tbody id="tablaCasos">
-            <tr><td colspan="17"><div class="empty"><div class="emoji">📋</div>No hay casos registrados aún</div></td></tr>
+            <tr><td colspan="18"><div class="empty"><div class="emoji">📋</div>No hay casos registrados aún</div></td></tr>
           </tbody>
         </table>
       </div>
@@ -352,14 +427,204 @@
 
     <!-- KPI -->
     <div class="page" id="page-kpi">
-      <div class="kpi-cards" id="kpiCardsOp"></div>
-      <div class="section-header"><h2>Cumplimiento por Operador</h2></div>
-      <div class="kpi-section">
-        <div id="kpiBars"><div class="empty"><div class="emoji">📊</div>No hay datos aún</div></div>
+
+      <!-- Config meta diaria -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+        <h2 style="font-size:1rem;font-weight:700;">Evaluación por Operador</h2>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:10px;background:#fff;padding:10px 16px;border-radius:10px;box-shadow:var(--shadow);">
+            <span style="font-size:0.78rem;font-weight:700;color:#888;">META DIARIA:</span>
+            <input type="number" id="metaDiaria" value="7" min="1" max="999"
+              style="width:60px;padding:5px 8px;border:1.5px solid #e0e0e0;border-radius:6px;font-family:'Montserrat',sans-serif;font-size:0.85rem;font-weight:700;text-align:center;"
+              onchange="renderKPI()"/>
+            <span style="font-size:0.78rem;color:#888;">casos/día</span>
+            <button onclick="renderKPI()" class="btn btn-red btn-sm">Aplicar</button>
+          </div>
+          <button onclick="cerrarDia()" style="background:linear-gradient(135deg,#1a4fa8,#0d3580);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-family:'Montserrat',sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(13,53,128,0.3);">
+            🔒 Cerrar Día
+          </button>
+          <button onclick="showPage('historial')" style="background:#fff;color:#333;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 16px;font-family:'Montserrat',sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer;">
+            📅 Ver Historial
+          </button>
+        </div>
+      </div>
+
+      <!-- Filtros KPI -->
+      <div style="background:#fff;border-radius:10px;padding:12px 16px;margin-bottom:16px;box-shadow:var(--shadow);display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:0.72rem;font-weight:700;color:#888;">FILTRAR:</span>
+        <select id="kfAnio" onchange="renderKPI()" style="padding:5px 9px;border:1.5px solid #e0e0e0;border-radius:7px;font-family:'Montserrat',sans-serif;font-size:0.76rem;color:#333;outline:none;">
+          <option value="">Todos los años</option>
+          <option value="2026">2026</option>
+          <option value="2027">2027</option>
+        </select>
+        <select id="kfMes" onchange="renderKPI()" style="padding:5px 9px;border:1.5px solid #e0e0e0;border-radius:7px;font-family:'Montserrat',sans-serif;font-size:0.76rem;color:#333;outline:none;">
+          <option value="">Todos los meses</option>
+          <option>Enero</option><option>Febrero</option><option>Marzo</option><option>Abril</option>
+          <option>Mayo</option><option>Junio</option><option>Julio</option><option>Agosto</option>
+          <option>Septiembre</option><option>Octubre</option><option>Noviembre</option><option>Diciembre</option>
+        </select>
+        <select id="kfSemana" onchange="renderKPI()" style="padding:5px 9px;border:1.5px solid #e0e0e0;border-radius:7px;font-family:'Montserrat',sans-serif;font-size:0.76rem;color:#333;outline:none;">
+          <option value="">Todas las semanas</option>
+        </select>
+      </div>
+
+      <!-- Tarjetas resumen -->
+      <div id="kpiCardsOp" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;"></div>
+
+      <!-- Alertas -->
+      <div id="kpiAlertas" style="margin-bottom:16px;"></div>
+
+      <!-- Ranking top 3 -->
+      <div id="kpiRanking" style="margin-bottom:16px;"></div>
+
+      <!-- Tabla KPI por operador -->
+      <div class="table-wrap" style="min-width:0;">
+        <table style="min-width:700px;">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Operador</th>
+              <th>Casos Finalizados</th>
+              <th>Meta</th>
+              <th>SLA Promedio</th>
+              <th>Cumplimiento</th>
+              <th>Estado</th>
+              <th>Detalle</th>
+            </tr>
+          </thead>
+          <tbody id="tablaKPI">
+            <tr><td colspan="8"><div class="empty"><div class="emoji">📊</div>No hay datos aún</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Gráfico KPI barras por operador -->
+      <div style="background:#fff;border-radius:12px;padding:20px;box-shadow:var(--shadow);margin-top:20px;">
+        <div style="font-size:0.72rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">CUMPLIMIENTO % POR OPERADOR</div>
+        <div style="position:relative;height:180px;">
+          <canvas id="chartKPI"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MODAL DETALLE OPERADOR -->
+    <div class="overlay" id="overlayDetalleOp" onclick="cerrarFuera(event,'overlayDetalleOp')">
+      <div class="modal" style="max-width:700px;">
+        <h2 id="detalleOpTitulo">📋 Casos del Operador</h2>
+        <div id="detalleOpCards" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;"></div>
+        <div style="overflow:auto;max-height:350px;">
+          <table style="min-width:500px;width:100%;">
+            <thead>
+              <tr>
+                <th>Enlace</th>
+                <th>Dirección</th>
+                <th>Fecha Instal.</th>
+                <th>T. Total</th>
+                <th>SLA</th>
+                <th>Estatus</th>
+              </tr>
+            </thead>
+            <tbody id="detalleOpTabla"></tbody>
+          </table>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="cerrarModal('overlayDetalleOp')">Cerrar</button>
+        </div>
       </div>
     </div>
 
-    <!-- OPERADORES -->
+    <!-- HISTORIAL KPI -->
+    <div class="page" id="page-historial">
+      <div class="section-header">
+        <h2>📅 Historial de Cumplimiento Diario</h2>
+        <button class="btn btn-outline" onclick="showPage('kpi')">← Volver a KPI</button>
+      </div>
+
+      <!-- Filtros -->
+      <div style="background:#fff;border-radius:10px;padding:12px 16px;margin-bottom:16px;box-shadow:var(--shadow);display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:0.72rem;font-weight:700;color:#888;">FILTRAR:</span>
+        <input type="date" id="hfDesde" onchange="cargarHistorial()" style="padding:6px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.78rem;outline:none;"/>
+        <span style="font-size:0.78rem;color:#aaa;">hasta</span>
+        <input type="date" id="hfHasta" onchange="cargarHistorial()" style="padding:6px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.78rem;outline:none;"/>
+        <select id="hfOperador" onchange="cargarHistorial()" style="padding:6px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.78rem;color:#333;outline:none;">
+          <option value="">Todos los operadores</option>
+        </select>
+        <button onclick="limpiarFiltrosHistorial()" style="padding:6px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.75rem;font-weight:700;color:#888;background:#fff;cursor:pointer;">✕ Limpiar</button>
+      </div>
+
+      <!-- Tarjetas resumen historial -->
+      <div id="historialCards" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;"></div>
+
+      <!-- Gráfico cumplimiento general por fecha -->
+      <div style="background:#fff;border-radius:12px;padding:16px 20px;box-shadow:var(--shadow);margin-bottom:16px;">
+        <div style="font-size:0.68rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">CUMPLIMIENTO GENERAL POR DÍA</div>
+        <div style="position:relative;height:140px;">
+          <canvas id="chartHistorial"></canvas>
+        </div>
+      </div>
+
+      <!-- Tabla -->
+      <div class="table-wrap">
+        <table style="min-width:600px;">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Operador</th>
+              <th>Casos Finalizados</th>
+              <th>Meta Total</th>
+              <th>Meta Diaria</th>
+              <th>Cumplimiento</th>
+              <th>Promedio/Día</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="tablaHistorial">
+            <tr><td colspan="8"><div class="empty"><div class="emoji">📅</div>No hay historial guardado</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ESTADOS -->
+    <div class="page" id="page-estados">
+      <div class="section-header" style="margin-bottom:16px;">
+        <h2>🔖 Vista por Estado</h2>
+        <div style="display:flex;gap:8px;">
+          <button onclick="capturarTabla()" style="background:linear-gradient(135deg,#25d366,#128c7e);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-family:'Montserrat',sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(37,211,102,0.3);">
+            📸 Capturar para WhatsApp
+          </button>
+          <button class="btn btn-red" onclick="abrirModalCaso()">+ Nuevo Caso</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;" id="estadosTabs">
+        <button onclick="filtrarEstado('Todos')"       class="tab-btn tab-active" id="tabTodos">Todos</button>
+        <button onclick="filtrarEstado('Programado')"  class="tab-btn" id="tabProgramado">🟣 Programado</button>
+        <button onclick="filtrarEstado('En Proceso')"  class="tab-btn" id="tabEnProceso">🟡 En Proceso</button>
+        <button onclick="filtrarEstado('Pausado')"     class="tab-btn" id="tabPausado">🟠 Pausado</button>
+        <button onclick="filtrarEstado('Cancelado')"   class="tab-btn" id="tabCancelado">🔴 Cancelado</button>
+      </div>
+      <div id="estadosCards" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;"></div>
+      <div class="table-wrap">
+        <table style="min-width:700px;">
+          <thead>
+            <tr>
+              <th>Acciones</th>
+              <th>Estatus</th>
+              <th>Enlace</th>
+              <th>Operador</th>
+              <th>Dirección</th>
+              <th>Fecha Atención</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaEstados">
+            <tr><td colspan="7"><div class="empty"><div class="emoji">🔖</div>No hay casos</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="page" id="page-operadores">
       <div class="section-header">
         <h2>Operadores Registrados</h2>
@@ -386,7 +651,7 @@
     <h2 id="modalCasoTitle">📋 Registrar Nuevo Caso</h2>
     <input type="hidden" id="cId"/>
     <div class="form-grid">
-      <div class="form-group"><label>Enlace</label><input type="text" id="cEnlace" placeholder="ID o número"/></div>
+      <div class="form-group"><label>Enlace</label><input type="text" id="cEnlace" placeholder="Ej: ENL-001 o nombre"/></div>
       <div class="form-group"><label>Operador Asignado</label><select id="cOperador"><option value="">Seleccionar...</option></select></div>
       <div class="form-group full"><label>Dirección</label><input type="text" id="cDireccion" placeholder="Dirección completa"/></div>
       <div class="form-group"><label>Año</label><select id="cAnio"><option value="2026">2026</option><option value="2027">2027</option></select></div>
@@ -403,15 +668,40 @@
       <div class="form-group"><label>Días (1–31)</label>
         <select id="cDias"><option value="">Seleccionar...</option></select>
       </div>
-      <div class="form-group"><label>Fecha Atención</label><input type="datetime-local" id="cFechaAtencion" oninput="calcTiempo()"/></div>
+      <div class="form-group">
+        <label>Fecha Atención</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <div class="tiempo-display" id="cFechaAtencionDisplay" style="flex:1;font-size:0.82rem;color:#555;"></div>
+          <input type="time" id="cHoraAtencion" oninput="actualizarFechaAtencion()" style="padding:9px 10px;border:1.5px solid #e0e0e0;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:0.85rem;outline:none;width:110px;"/>
+        </div>
+        <input type="hidden" id="cFechaAtencion"/>
+      </div>
       <div class="form-group"><label>Fecha Instalación</label><input type="datetime-local" id="cFechaInstalacion" oninput="calcTiempo()"/></div>
       <div class="form-group"><label>Tiempo Total (auto)</label><div class="tiempo-display" id="cTiempoTotal">—</div></div>
-      <div class="form-group"><label>Pausa (horas)</label><input type="number" id="cPausa" placeholder="0" min="0" step="0.5" oninput="calcTiempo()"/></div>
+      <div class="form-group"><label>Pausa (hh:mm)</label><input type="text" id="cPausa" placeholder="ej: 01:30" oninput="calcTiempo()"/></div>
       <div class="form-group"><label>SLA (auto)</label><div class="tiempo-display" id="cSLA">—</div></div>
+      <div class="form-group">
+        <label>Estatus</label>
+        <select id="cEstatus">
+          <option value="Programado">Programado</option>
+          <option value="En Proceso">En Proceso</option>
+          <option value="Pausado">Pausado</option>
+          <option value="Finalizado">Finalizado</option>
+          <option value="Cancelado">Cancelado</option>
+        </select>
+      </div>
       <div class="form-group full"><label>Coordenadas</label><input type="text" id="cCoordenadas" placeholder="Ej: 14.0818, -87.2068"/></div>
       <div class="form-group full"><label>Equipo Instalado</label><input type="text" id="cEquipo" placeholder="Descripción del equipo"/></div>
-      <div class="form-group"><label>Foto Retiro de Equipo</label><input type="file" id="cFotoRetiro" accept="image/*"/></div>
-      <div class="form-group"><label>Foto Equipo Instalado</label><input type="file" id="cFotoInstalado" accept="image/*"/></div>
+      <div class="form-group full">
+        <label>Fotos Retiro de Equipo (máx. 3)</label>
+        <input type="file" id="cFotoRetiro" accept="image/*" multiple onchange="previewFotos(this,'previewRetiro',3)"/>
+        <div id="previewRetiro" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"></div>
+      </div>
+      <div class="form-group full">
+        <label>Fotos Equipo Instalado (máx. 3)</label>
+        <input type="file" id="cFotoInstalado" accept="image/*" multiple onchange="previewFotos(this,'previewInstalado',3)"/>
+        <div id="previewInstalado" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"></div>
+      </div>
       <div class="form-group full"><label>Observaciones</label><textarea id="cObservaciones" placeholder="Notas adicionales..."></textarea></div>
     </div>
     <div class="modal-footer">
@@ -423,11 +713,12 @@
 
 <!-- MODAL VER CASO -->
 <div class="overlay" id="overlayVer" onclick="cerrarFuera(event,'overlayVer')">
-  <div class="modal">
+  <div class="modal" id="modalVerCaso">
     <h2>👁 Detalle del Caso</h2>
     <div class="view-grid" id="verGrid"></div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="cerrarModal('overlayVer')">Cerrar</button>
+      <button class="btn btn-red" onclick="descargarPDF()" style="background:linear-gradient(135deg,#1a4fa8,#0d3580);">📄 Descargar PDF</button>
     </div>
   </div>
 </div>
@@ -443,6 +734,60 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="cerrarModal('overlayOp')">Cancelar</button>
       <button class="btn btn-red" id="btnGuardarOp" onclick="guardarOperador()">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL USUARIO -->
+<div class="overlay" id="overlayUsuario" onclick="cerrarFuera(event,'overlayUsuario')">
+  <div class="modal" style="max-width:360px;">
+    <h2>👤 Mi Cuenta</h2>
+    <div class="view-grid" style="grid-template-columns:1fr;">
+      <div class="view-item">
+        <div class="vi-label">Nombre</div>
+        <div class="vi-val" id="modalUserNombre">—</div>
+      </div>
+      <div class="view-item">
+        <div class="vi-label">Email</div>
+        <div class="vi-val" id="modalUserEmail">—</div>
+      </div>
+      <div class="view-item">
+        <div class="vi-label">Rol</div>
+        <div class="vi-val" id="modalUserRol">—</div>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between;">
+      <button class="btn btn-outline" onclick="cerrarModal('overlayUsuario')">Cerrar</button>
+      <button class="btn btn-red" onclick="cerrarSesion()">🚪 Cerrar Sesión</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL META -->
+<div class="overlay" id="overlayMeta" onclick="cerrarFuera(event,'overlayMeta')">
+  <div class="modal" style="max-width:400px;">
+    <h2>🎯 Definir Objetivo</h2>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+      <div class="form-group full">
+        <label>Descripción</label>
+        <input type="text" id="metaDesc" placeholder="Ej: Meta Q1 2026"/>
+      </div>
+      <div class="form-group full">
+        <label>Casos objetivo</label>
+        <input type="number" id="metaCasos" placeholder="Ej: 3000" min="1"/>
+      </div>
+      <div class="form-group">
+        <label>Fecha inicio</label>
+        <input type="date" id="metaInicio"/>
+      </div>
+      <div class="form-group">
+        <label>Fecha fin</label>
+        <input type="date" id="metaFin"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('overlayMeta')">Cancelar</button>
+      <button class="btn btn-red" onclick="guardarMeta()">Guardar Meta</button>
     </div>
   </div>
 </div>
@@ -465,7 +810,195 @@
 
   // ── Session ──
   const sess = JSON.parse(sessionStorage.getItem('kpi_session') || localStorage.getItem('kpi_session') || '{}');
-  if(sess.nombre){ document.getElementById('userName').textContent=sess.nombre; document.getElementById('userAvatar').textContent=sess.nombre.charAt(0).toUpperCase(); }
+
+  async function inicializarSesion(){
+    // Primero intenta de sessionStorage
+    if(sess.nombre || sess.email){
+      mostrarUsuario(sess);
+      return;
+    }
+    // Si no, intenta de Supabase Auth (OAuth)
+    const { data } = await sb.auth.getSession();
+    if(data?.session?.user){
+      const u = data.session.user;
+      const info = {
+        nombre: u.user_metadata?.full_name || u.user_metadata?.name || u.email,
+        email:  u.email,
+        id:     u.id,
+        rol:    'usuario'
+      };
+      sessionStorage.setItem('kpi_session', JSON.stringify(info));
+      mostrarUsuario(info);
+    }
+  }
+
+  function mostrarUsuario(u){
+    if(u.nombre){
+      document.getElementById('userName').textContent  = u.nombre;
+      document.getElementById('userAvatar').textContent = u.nombre.charAt(0).toUpperCase();
+    }
+    if(u.email) document.getElementById('userEmail').textContent = u.email;
+  }
+
+  function abrirModalUsuario(){
+    const s = JSON.parse(sessionStorage.getItem('kpi_session') || '{}');
+    document.getElementById('modalUserNombre').textContent = s.nombre || '—';
+    document.getElementById('modalUserEmail').textContent  = s.email  || '—';
+    document.getElementById('modalUserRol').textContent    = s.rol === 'admin' ? '👑 Administrador' : '👤 Usuario';
+    document.getElementById('overlayUsuario').classList.add('open');
+  }
+
+  inicializarSesion();
+
+  // ── Todos los casos en memoria para filtros ──
+  let todosCasos = [];
+
+  // ── Filtros ──
+  function poblarFiltros(casos){
+    const anios   = [...new Set(casos.map(c=>c.anio).filter(Boolean))].sort();
+    const meses   = [...new Set(casos.map(c=>c.mes).filter(Boolean))];
+    const semanas = [...new Set(casos.map(c=>c.semana).filter(Boolean))].sort((a,b)=>a-b);
+    const dias    = [...new Set(casos.map(c=>c.dias).filter(Boolean))].sort((a,b)=>a-b);
+    const ops     = [...new Set(casos.map(c=>c.operadores?.nombre).filter(Boolean))].sort();
+
+    const setOpts = (id, vals, label) => {
+      const sel = document.getElementById(id);
+      const cur = sel.value;
+      sel.innerHTML = `<option value="">${label}</option>`;
+      vals.forEach(v => sel.innerHTML += `<option value="${v}">${v}</option>`);
+      if(cur) sel.value = cur;
+    };
+
+    setOpts('fAnio',    anios,   'Todos los años');
+    setOpts('fMes',     meses,   'Todos los meses');
+    setOpts('fSemana',  semanas, 'Todas las semanas');
+    setOpts('fDias',    dias,    'Todos los días');
+    setOpts('fOperador',ops,     'Todos los operadores');
+  }
+
+  function filtrarCasos(){
+    const anio  = document.getElementById('fAnio').value;
+    const mes   = document.getElementById('fMes').value;
+    const sem   = document.getElementById('fSemana').value;
+    const dia   = document.getElementById('fDias').value;
+    const op    = document.getElementById('fOperador').value;
+    const est   = document.getElementById('fEstatus').value;
+
+    const filtrados = todosCasos.filter(c =>
+      (!anio || String(c.anio) === anio) &&
+      (!mes  || c.mes === mes) &&
+      (!sem  || String(c.semana) === sem) &&
+      (!dia  || String(c.dias) === dia) &&
+      (!op   || c.operadores?.nombre === op) &&
+      (!est  || c.estatus === est)
+    );
+    renderTabla(filtrados);
+    actualizarKPICards(filtrados);
+  }
+
+  function limpiarFiltros(){
+    ['fAnio','fMes','fSemana','fDias','fOperador','fEstatus'].forEach(id => document.getElementById(id).value = '');
+    filtrarCasos();
+  }
+
+  // ── Exportar Excel formateado con ExcelJS ──
+  async function exportarExcel(){
+    if(!todosCasos.length){ toast('No hay datos para exportar.','#b00000'); return; }
+
+    const filtrados = todosCasos.filter(c => {
+      const anio = document.getElementById('fAnio').value;
+      const mes  = document.getElementById('fMes').value;
+      const sem  = document.getElementById('fSemana').value;
+      const dia  = document.getElementById('fDias').value;
+      const op   = document.getElementById('fOperador').value;
+      return (!anio||String(c.anio)===anio)&&(!mes||c.mes===mes)&&
+             (!sem||String(c.semana)===sem)&&(!dia||String(c.dias)===dia)&&
+             (!op||c.operadores?.nombre===op);
+    });
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Casos KPI');
+
+    ws.columns = [
+      { header:'Estatus',           key:'estatus',  width:16 },
+      { header:'Enlace',            key:'enlace',   width:14 },
+      { header:'Operador',          key:'operador', width:24 },
+      { header:'Dirección',         key:'dir',      width:32 },
+      { header:'Año',               key:'anio',     width:8  },
+      { header:'Mes',               key:'mes',      width:12 },
+      { header:'Semana',            key:'semana',   width:10 },
+      { header:'Días',              key:'dias',     width:8  },
+      { header:'Fecha Atención',    key:'fat',      width:22 },
+      { header:'Fecha Instalación', key:'fi',       width:22 },
+      { header:'Tiempo Total',      key:'tt',       width:14 },
+      { header:'Pausa',             key:'pausa',    width:10 },
+      { header:'SLA',               key:'sla',      width:12 },
+      { header:'Coordenadas',       key:'coord',    width:24 },
+      { header:'Equipo Instalado',  key:'equipo',   width:22 },
+      { header:'Observaciones',     key:'obs',      width:36 },
+    ];
+
+    // Estilo encabezado rojo oscuro
+    ws.getRow(1).eachCell(cell => {
+      cell.fill      = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF8B0000' } };
+      cell.font      = { bold:true, color:{ argb:'FFFFFFFF' }, size:11, name:'Calibri' };
+      cell.alignment = { horizontal:'center', vertical:'middle' };
+      cell.border    = { top:{style:'thin',color:{argb:'FFFFFFFF'}}, bottom:{style:'thin',color:{argb:'FFFFFFFF'}}, left:{style:'thin',color:{argb:'FFFFFFFF'}}, right:{style:'thin',color:{argb:'FFFFFFFF'}} };
+    });
+    ws.getRow(1).height = 28;
+
+    const estatusColor = {
+      'Programado': { bg:'FFEDE7F6', font:'FF6A1B9A' },
+      'En Proceso':  { bg:'FFFFF9C4', font:'FFB8860B' },
+      'Pausado':     { bg:'FFFFE0B2', font:'FFE65100' },
+      'Finalizado':  { bg:'FFE8F5E9', font:'FF1B5E20' },
+      'Cancelado':   { bg:'FFFFEBEE', font:'FFB71C1C' },
+    };
+
+    filtrados.forEach((c, i) => {
+      const rowBg = i % 2 === 0 ? 'FFF5F5F5' : 'FFFFFFFF';
+      const row = ws.addRow({
+        estatus:  c.estatus||'',
+        enlace:   c.enlace||'',
+        operador: c.operadores?.nombre||'',
+        dir:      c.direccion||'',
+        anio:     c.anio||'',
+        mes:      c.mes||'',
+        semana:   c.semana||'',
+        dias:     c.dias||'',
+        fat:      c.fecha_atencion ? new Date(c.fecha_atencion).toLocaleString('es') : '',
+        fi:       c.fecha_instalacion ? new Date(c.fecha_instalacion).toLocaleString('es') : '',
+        tt:       c.tiempo_total||'',
+        pausa:    c.pausa||'',
+        sla:      c.sla||'',
+        coord:    c.coordenadas||'',
+        equipo:   c.equipo_instalado||'',
+        obs:      c.observaciones||'',
+      });
+      row.height = 18;
+      row.eachCell((cell, colNum) => {
+        let bg = rowBg;
+        let fontColor = 'FF2D2D2D';
+        let bold = false;
+        if(colNum === 1){
+          const ec = estatusColor[c.estatus];
+          if(ec){ bg = ec.bg; fontColor = ec.font; bold = true; }
+        }
+        cell.fill      = { type:'pattern', pattern:'solid', fgColor:{ argb: bg } };
+        cell.font      = { size:10, color:{ argb: fontColor }, bold, name:'Calibri' };
+        cell.alignment = { vertical:'middle' };
+        cell.border    = { top:{style:'thin',color:{argb:'FFE0E0E0'}}, bottom:{style:'thin',color:{argb:'FFE0E0E0'}}, left:{style:'thin',color:{argb:'FFE0E0E0'}}, right:{style:'thin',color:{argb:'FFE0E0E0'}} };
+      });
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob   = new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url    = URL.createObjectURL(blob);
+    const a      = document.createElement('a');
+    a.href = url; a.download = `KPI_Casos_${new Date().toLocaleDateString('es').replace(/\//g,'-')}.xlsx`;
+    a.click(); URL.revokeObjectURL(url);
+    toast('¡Excel exportado!','#1a7a4a');
+  }
 
   // ── Toast ──
   function toast(msg,color){ const el=document.getElementById('toast'); el.textContent=msg; el.style.background=color||'#222'; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),3500); }
@@ -483,16 +1016,54 @@
   if(window.innerWidth < 900){ sidebarOpen=false; document.getElementById('sidebar').classList.add('hidden'); document.getElementById('main').classList.add('full'); }
 
   // ── Nav ──
-  const titles = { inicio:'Inicio — Registro de Casos', kpi:'KPI — Cumplimiento', operadores:'Gestión de Operadores' };
+  const titles = { inicio:'Inicio — Casos Finalizados', estados:'Vista por Estado', kpi:'KPI — Cumplimiento', operadores:'Gestión de Operadores', historial:'Historial de Cumplimiento' };
   function showPage(id){
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
     document.getElementById('page-'+id).classList.add('active');
-    ['inicio','kpi','operadores'].forEach((p,i)=>{ if(p===id) document.querySelectorAll('.nav-item')[i].classList.add('active'); });
-    document.getElementById('pageTitle').textContent = titles[id];
+    ['inicio','estados','kpi','operadores'].forEach((p,i)=>{ if(p===id) document.querySelectorAll('.nav-item')[i].classList.add('active'); });
+    document.getElementById('pageTitle').textContent = titles[id] || id;
     if(id==='kpi') renderKPI();
     if(id==='operadores') cargarOperadores();
+    if(id==='historial') cargarHistorial();
+    if(id==='estados') cargarEstados();
     if(window.innerWidth < 900 && sidebarOpen) toggleSidebar();
+  }
+
+  // ── Auto detectar fecha actual ──
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  function getSemana(fecha){
+    const d = new Date(fecha);
+    // ISO-8601: semana empieza el lunes
+    const day = d.getDay() === 0 ? 7 : d.getDay(); // domingo=7
+    d.setDate(d.getDate() + 4 - day); // jueves de esta semana
+    const yearStart = new Date(d.getFullYear(), 0, 1);
+    return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+  }
+
+  function autoDetectarFecha(){
+    const hoy = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    document.getElementById('cAnio').value   = hoy.getFullYear();
+    document.getElementById('cMes').value    = MESES[hoy.getMonth()];
+    document.getElementById('cSemana').value = getSemana(hoy);
+    document.getElementById('cDias').value   = hoy.getDate();
+    const fechaStr = `${hoy.getFullYear()}-${pad(hoy.getMonth()+1)}-${pad(hoy.getDate())}`;
+    const horaStr  = `${pad(hoy.getHours())}:${pad(hoy.getMinutes())}`;
+    document.getElementById('cHoraAtencion').value = horaStr;
+    document.getElementById('cFechaAtencion').value = `${fechaStr}T${horaStr}`;
+    document.getElementById('cFechaAtencionDisplay').textContent = hoy.toLocaleDateString('es',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+  }
+
+  function actualizarFechaAtencion(){
+    const hoy = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const hora = document.getElementById('cHoraAtencion').value;
+    if(!hora) return;
+    const fechaStr = `${hoy.getFullYear()}-${pad(hoy.getMonth()+1)}-${pad(hoy.getDate())}`;
+    document.getElementById('cFechaAtencion').value = `${fechaStr}T${hora}`;
+    calcTiempo();
   }
 
   // ── Modals ──
@@ -512,33 +1083,65 @@
       document.getElementById('cMes').value = data.mes||'';
       document.getElementById('cSemana').value = data.semana||'';
       document.getElementById('cDias').value = data.dias||'';
-      document.getElementById('cFechaAtencion').value = data.fecha_atencion ? data.fecha_atencion.slice(0,16) : '';
+      // Cargar fecha atención en modo edición
+      if(data.fecha_atencion){
+        const fa = new Date(data.fecha_atencion);
+        const pad = n => String(n).padStart(2,'0');
+        const fechaStr = `${fa.getFullYear()}-${pad(fa.getMonth()+1)}-${pad(fa.getDate())}`;
+        const horaStr  = `${pad(fa.getHours())}:${pad(fa.getMinutes())}`;
+        document.getElementById('cFechaAtencion').value = `${fechaStr}T${horaStr}`;
+        document.getElementById('cHoraAtencion').value  = horaStr;
+        document.getElementById('cFechaAtencionDisplay').textContent = fa.toLocaleDateString('es',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+      }
       document.getElementById('cFechaInstalacion').value = data.fecha_instalacion ? data.fecha_instalacion.slice(0,16) : '';
-      document.getElementById('cPausa').value = data.pausa ? parseFloat(data.pausa) : '';
+      document.getElementById('cPausa').value = data.pausa||'';
       document.getElementById('cCoordenadas').value = data.coordenadas||'';
       document.getElementById('cEquipo').value = data.equipo_instalado||'';
       document.getElementById('cObservaciones').value = data.observaciones||'';
+      document.getElementById('cEstatus').value = data.estatus||'Programado';
       setTimeout(()=>{ document.getElementById('cOperador').value = data.operador_id||''; calcTiempo(); },300);
+    } else {
+      // Nuevo caso: auto detectar fecha
+      autoDetectarFecha();
     }
     document.getElementById('overlayCaso').classList.add('open');
   }
 
   function abrirModalOperador(){ document.getElementById('overlayOp').classList.add('open'); }
 
+  // ── Formato hh:mm (soporta >24h) ──
+  function fmtHHMM(totalMinutos){
+    const neg = totalMinutos < 0;
+    const abs = Math.abs(Math.round(totalMinutos));
+    const hh  = Math.floor(abs / 60);
+    const mm  = abs % 60;
+    return (neg?'-':'') + String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+  }
+
+  function parsePausa(val){
+    if(!val) return 0;
+    val = String(val).trim();
+    if(val.includes(':')){ const[h,m]=val.split(':'); return parseInt(h||0)*60+(parseInt(m||0)); }
+    const n = parseFloat(val);
+    if(isNaN(n)) return 0;
+    return n < 24 ? Math.round(n*60) : n;
+  }
+
   // ── Calcular tiempo ──
-  const SLA_LIMITE = 8;
   function calcTiempo(){
     const fa=document.getElementById('cFechaAtencion').value;
     const fi=document.getElementById('cFechaInstalacion').value;
-    const pausa=parseFloat(document.getElementById('cPausa').value)||0;
-    if(!fa||!fi){ document.getElementById('cTiempoTotal').textContent='—'; document.getElementById('cSLA').textContent='—'; return; }
-    const diff=(new Date(fi)-new Date(fa))/3600000;
-    const neto=diff-pausa;
-    const fmt=h=>{const hh=Math.floor(Math.abs(h));const mm=Math.round((Math.abs(h)-hh)*60);return `${hh}h ${mm}m`;};
-    document.getElementById('cTiempoTotal').textContent = neto>=0 ? fmt(neto) : 'Fechas inválidas';
-    const slaEl=document.getElementById('cSLA');
-    if(neto>SLA_LIMITE){ slaEl.textContent=fmt(neto-SLA_LIMITE)+' atraso'; slaEl.style.color='#cc0000'; }
-    else { slaEl.textContent='A tiempo ✓'; slaEl.style.color='#1a7a4a'; }
+    const pausaMin = parsePausa(document.getElementById('cPausa').value);
+    const ttEl  = document.getElementById('cTiempoTotal');
+    const slaEl = document.getElementById('cSLA');
+    if(!fa||!fi){ ttEl.textContent='—'; slaEl.textContent='—'; return; }
+
+    const diffMin = (new Date(fi)-new Date(fa))/60000;
+    if(diffMin < 0){ ttEl.textContent='Fechas inválidas'; slaEl.textContent='—'; return; }
+
+    ttEl.textContent  = fmtHHMM(diffMin);
+    slaEl.textContent = fmtHHMM(Math.max(0, diffMin - pausaMin));
+    slaEl.style.color = pausaMin > 0 ? '#b06000' : '#333';
   }
 
   // ── Cargar ops en select ──
@@ -560,21 +1163,33 @@
     const op=document.getElementById('cOperador').value;
     if(!op){ toast('Selecciona un operador.','#b00000'); return; }
     if(!fa||!fi){ toast('Ingresa las fechas.','#b00000'); return; }
-    const pausa=parseFloat(document.getElementById('cPausa').value)||0;
-    const diff=(new Date(fi)-new Date(fa))/3600000;
-    const neto=diff-pausa;
-    const fmt=h=>{const hh=Math.floor(Math.abs(h));const mm=Math.round((Math.abs(h)-hh)*60);return `${hh}h ${mm}m`;};
-    const slaVal=neto>SLA_LIMITE?fmt(neto-SLA_LIMITE)+' atraso':'A tiempo';
+
+    const pausaMin = parsePausa(document.getElementById('cPausa').value);
+    const diffMin  = (new Date(fi)-new Date(fa))/60000;
+    if(diffMin < 0){ toast('La fecha de instalación debe ser posterior a la de atención.','#b00000'); return; }
+
+    const tiempoTotalMin = diffMin;
+    const slaMin = Math.max(0, tiempoTotalMin - pausaMin);
+    const estatus = document.getElementById('cEstatus').value;
 
     const btn=document.getElementById('btnGuardarCaso');
     btn.disabled=true; btn.textContent='Guardando...';
 
     try{
-      let fotoRetiroUrl=null, fotoInstaladoUrl=null;
-      const fr=document.getElementById('cFotoRetiro').files[0];
-      const fi2=document.getElementById('cFotoInstalado').files[0];
-      if(fr){ const{data}=await sb.storage.from('fotos').upload(`retiro/${Date.now()}_${fr.name}`,fr); if(data) fotoRetiroUrl=sb.storage.from('fotos').getPublicUrl(data.path).data.publicUrl; }
-      if(fi2){ const{data}=await sb.storage.from('fotos').upload(`instalado/${Date.now()}_${fi2.name}`,fi2); if(data) fotoInstaladoUrl=sb.storage.from('fotos').getPublicUrl(data.path).data.publicUrl; }
+      // Subir hasta 3 fotos de retiro
+      let fotosRetiroUrls = [];
+      let fotosInstaladoUrls = [];
+      const frFiles = Array.from(document.getElementById('cFotoRetiro').files).slice(0,3);
+      const fi2Files = Array.from(document.getElementById('cFotoInstalado').files).slice(0,3);
+
+      for(const f of frFiles){
+        const{data}=await sb.storage.from('fotos').upload(`retiro/${Date.now()}_${f.name}`,f);
+        if(data) fotosRetiroUrls.push(sb.storage.from('fotos').getPublicUrl(data.path).data.publicUrl);
+      }
+      for(const f of fi2Files){
+        const{data}=await sb.storage.from('fotos').upload(`instalado/${Date.now()}_${f.name}`,f);
+        if(data) fotosInstaladoUrls.push(sb.storage.from('fotos').getPublicUrl(data.path).data.publicUrl);
+      }
 
       const body={
         enlace:document.getElementById('cEnlace').value,
@@ -582,13 +1197,16 @@
         anio:parseInt(document.getElementById('cAnio').value), mes:document.getElementById('cMes').value,
         semana:parseInt(document.getElementById('cSemana').value), dias:parseInt(document.getElementById('cDias').value),
         fecha_atencion:fa, fecha_instalacion:fi,
-        tiempo_total:fmt(neto), pausa:pausa>0?pausa+'h':null, sla:slaVal,
+        tiempo_total: fmtHHMM(tiempoTotalMin),
+        pausa: pausaMin > 0 ? fmtHHMM(pausaMin) : null,
+        sla: fmtHHMM(slaMin),
+        estatus: estatus,
         coordenadas:document.getElementById('cCoordenadas').value,
         equipo_instalado:document.getElementById('cEquipo').value,
         observaciones:document.getElementById('cObservaciones').value,
       };
-      if(fotoRetiroUrl) body.foto_retiro=fotoRetiroUrl;
-      if(fotoInstaladoUrl) body.foto_instalado=fotoInstaladoUrl;
+      if(fotosRetiroUrls.length) body.foto_retiro=JSON.stringify(fotosRetiroUrls);
+      if(fotosInstaladoUrls.length) body.foto_instalado=JSON.stringify(fotosInstaladoUrls);
 
       let res;
       if(id){
@@ -606,17 +1224,83 @@
   function limpiarFormCaso(){
     document.getElementById('cId').value='';
     ['cEnlace','cDireccion','cCoordenadas','cEquipo','cObservaciones','cPausa'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('cFechaAtencion').value=''; document.getElementById('cFechaInstalacion').value='';
+    document.getElementById('cFechaAtencion').value='';
+    document.getElementById('cHoraAtencion').value='';
+    document.getElementById('cFechaAtencionDisplay').textContent='';
+    document.getElementById('cFechaInstalacion').value='';
     document.getElementById('cTiempoTotal').textContent='—'; document.getElementById('cSLA').textContent='—';
     document.getElementById('cSLA').style.color=''; document.getElementById('cOperador').value='';
+    document.getElementById('previewRetiro').innerHTML='';
+    document.getElementById('previewInstalado').innerHTML='';
+  }
+
+  let casoActual = null;
+
+  // ── Preview fotos ──
+  function previewFotos(input, previewId, max){
+    const preview = document.getElementById(previewId);
+    preview.innerHTML = '';
+    const files = Array.from(input.files).slice(0, max);
+    if(input.files.length > max) toast(`Máximo ${max} fotos permitidas. Se tomarán las primeras ${max}.`, '#b06000');
+    files.forEach(f => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        img.style.cssText = 'width:80px;height:70px;object-fit:cover;border-radius:6px;border:2px solid #ddd;';
+        preview.appendChild(img);
+      };
+      reader.readAsDataURL(f);
+    });
   }
 
   // ── Ver caso ──
   function verCaso(c){
+    casoActual = c;
     const fmt=(label,val,full=false)=>`<div class="view-item${full?' full':''}"><div class="vi-label">${label}</div><div class="vi-val">${val||'—'}</div></div>`;
-    const fotos = [c.foto_retiro,c.foto_instalado].filter(Boolean).map(u=>`<a href="${u}" target="_blank" style="margin-right:8px">📷 Ver foto</a>`).join('') || '—';
+
+    // Parsear fotos (pueden ser JSON array o string simple)
+    const parseFotos = val => {
+      if(!val) return [];
+      try { const p = JSON.parse(val); return Array.isArray(p) ? p : [val]; }
+      catch { return [val]; }
+    };
+
+    const fotosRetiro = parseFotos(c.foto_retiro);
+    const fotosInstalado = parseFotos(c.foto_instalado);
+
+    const renderFotos = (fotos, label, tipo) => {
+      if(!fotos.length) return '';
+      return `<div style="margin-bottom:10px">
+        <div style="font-size:0.7rem;color:#888;font-weight:700;margin-bottom:6px">${label}</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          ${fotos.map((u,i)=>`
+            <div style="position:relative;display:inline-block;">
+              <a href="${u}" target="_blank">
+                <img src="${u}" style="width:160px;height:120px;object-fit:cover;border-radius:8px;border:2px solid #eee;display:block;" onerror="this.parentElement.parentElement.style.display='none'"/>
+              </a>
+              <div style="display:flex;gap:4px;margin-top:5px;justify-content:center;">
+                <a href="${u}" download target="_blank" title="Descargar"
+                  style="background:#e8f4fd;color:#1a6fa8;border:none;border-radius:6px;padding:5px 10px;font-size:0.78rem;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block;">
+                  ⬇ Descargar
+                </a>
+                <button onclick="eliminarFoto('${c.id}','${tipo}',${i},${JSON.stringify(fotos)})" title="Eliminar"
+                  style="background:#fce8e8;color:#cc0000;border:none;border-radius:6px;padding:5px 10px;font-size:0.78rem;font-weight:700;cursor:pointer;">
+                  🗑 Eliminar
+                </button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+    };
+
+    let fotosHtml = renderFotos(fotosRetiro, 'RETIRO DE EQUIPO', 'foto_retiro') + renderFotos(fotosInstalado, 'EQUIPO INSTALADO', 'foto_instalado');
+    if(!fotosHtml) fotosHtml = '<span style="color:#aaa;font-size:0.85rem;">Sin fotos adjuntas</span>';
+
     document.getElementById('verGrid').innerHTML =
       fmt('Enlace',c.enlace)+fmt('Operador',c.operadores?.nombre)+
+      fmt('Estatus', estatusBadge(c.estatus), false)+
       fmt('Dirección',c.direccion,true)+
       fmt('Año',c.anio)+fmt('Mes',c.mes)+fmt('Semana',c.semana)+fmt('Días',c.dias)+
       fmt('Fecha Atención',c.fecha_atencion?new Date(c.fecha_atencion).toLocaleString('es'):'')+
@@ -624,9 +1308,182 @@
       fmt('Tiempo Total',`<b>${c.tiempo_total||'—'}</b>`)+fmt('Pausa',c.pausa)+
       fmt('SLA',`<span class="badge ${c.sla?.includes('atraso')?'badge-red':'badge-green'}">${c.sla||'—'}</span>`)+
       fmt('Coordenadas',c.coordenadas)+fmt('Equipo',c.equipo_instalado)+
-      `<div class="view-item full"><div class="vi-label">Fotos</div><div class="vi-val">${fotos}</div></div>`+
+      `<div class="view-item full"><div class="vi-label">Fotos</div><div class="vi-val" style="background:transparent;padding:0">${fotosHtml}</div></div>`+
       fmt('Observaciones',c.observaciones,true);
     document.getElementById('overlayVer').classList.add('open');
+  }
+
+  // ── Descargar PDF ──
+  async function descargarPDF(){
+    if(!casoActual){ toast('No hay caso seleccionado.','#b00000'); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    const c = casoActual;
+    const pageW = 210;
+    const margin = 14;
+    const colW = (pageW - margin*2) / 2;
+    let y = 14;
+
+    // ── Encabezado ──
+    doc.setFillColor(139, 0, 0);
+    doc.rect(0, 0, pageW, 22, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(14);
+    doc.text('KPI Sistema — Detalle del Caso', margin, 14);
+    doc.setFontSize(9);
+    doc.text(new Date().toLocaleString('es'), pageW - margin, 14, {align:'right'});
+    y = 30;
+
+    // ── Función campo ──
+    const campo = (label, val, x, yPos, w) => {
+      doc.setFillColor(245,245,245);
+      doc.roundedRect(x, yPos, w, 14, 2, 2, 'F');
+      doc.setTextColor(136,136,136);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(7);
+      doc.text(label.toUpperCase(), x+3, yPos+5);
+      doc.setTextColor(45,45,45);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(9);
+      doc.text(String(val||'—').substring(0,50), x+3, yPos+11);
+    };
+
+    // ── Estatus badge ──
+    const estatusColors = {
+      'Programado': [106,27,154], 'En Proceso':[184,134,11],
+      'Pausado':[230,81,0], 'Finalizado':[27,94,32], 'Cancelado':[183,28,28]
+    };
+    const ec = estatusColors[c.estatus] || [100,100,100];
+    doc.setFillColor(...ec);
+    doc.roundedRect(margin, y, 40, 8, 2, 2, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(8);
+    doc.text(c.estatus||'—', margin+20, y+5.5, {align:'center'});
+    y += 14;
+
+    // ── Campos en 2 columnas ──
+    const campos = [
+      ['Enlace', c.enlace],
+      ['Operador', c.operadores?.nombre],
+      ['Año', c.anio],
+      ['Mes', c.mes],
+      ['Semana', c.semana],
+      ['Días', c.dias],
+      ['Fecha Atención', c.fecha_atencion ? new Date(c.fecha_atencion).toLocaleString('es') : ''],
+      ['Fecha Instalación', c.fecha_instalacion ? new Date(c.fecha_instalacion).toLocaleString('es') : ''],
+      ['Tiempo Total', c.tiempo_total],
+      ['Pausa', c.pausa],
+      ['SLA', c.sla],
+      ['Coordenadas', c.coordenadas],
+      ['Equipo Instalado', c.equipo_instalado],
+    ];
+
+    for(let i=0; i<campos.length; i+=2){
+      campo(campos[i][0], campos[i][1], margin, y, colW - 3);
+      if(campos[i+1]) campo(campos[i+1][0], campos[i+1][1], margin + colW + 3, y, colW - 3);
+      y += 18;
+      if(y > 265){ doc.addPage(); y = 14; }
+    }
+
+    // ── Dirección (full width) ──
+    campo('Dirección', c.direccion, margin, y, pageW - margin*2);
+    y += 18;
+
+    // ── Observaciones ──
+    if(c.observaciones){
+      doc.setFillColor(245,245,245);
+      doc.roundedRect(margin, y, pageW-margin*2, 20, 2, 2, 'F');
+      doc.setTextColor(136,136,136);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(7);
+      doc.text('OBSERVACIONES', margin+3, y+5);
+      doc.setTextColor(45,45,45);
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(9);
+      const lines = doc.splitTextToSize(c.observaciones||'—', pageW-margin*2-6);
+      doc.text(lines, margin+3, y+11);
+      y += 24;
+    }
+
+    // ── Fotos ──
+    const parseFotos = val => { try{ const r=JSON.parse(val); return Array.isArray(r)?r:[val]; }catch{ return val?[val]:[]; }};
+    const fotosR = parseFotos(c.foto_retiro);
+    const fotosI = parseFotos(c.foto_instalado);
+
+    const agregarFotos = async (fotos, titulo) => {
+      if(!fotos.length) return;
+      if(y > 220){ doc.addPage(); y = 14; }
+
+      // Título sección
+      doc.setFillColor(139,0,0);
+      doc.rect(margin, y, pageW-margin*2, 7, 'F');
+      doc.setTextColor(255,255,255);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(8);
+      doc.text(titulo, margin+3, y+5);
+      y += 11;
+
+      // Fotos en grilla 3 columnas
+      const fotoW = 52;
+      const fotoH = 40;
+      const gap   = 4;
+      let col = 0;
+      const startX = margin;
+
+      for(const url of fotos){
+        try{
+          const resp = await fetch(url);
+          const blob = await resp.blob();
+          const reader = new FileReader();
+          const b64 = await new Promise(res=>{ reader.onload=e=>res(e.target.result); reader.readAsDataURL(blob); });
+          const x = startX + col * (fotoW + gap);
+          // Borde
+          doc.setDrawColor(220,220,220);
+          doc.setLineWidth(0.3);
+          doc.roundedRect(x, y, fotoW, fotoH, 2, 2, 'S');
+          doc.addImage(b64, 'JPEG', x+1, y+1, fotoW-2, fotoH-2);
+          col++;
+          if(col >= 3){ col=0; y += fotoH + gap + 2; }
+        }catch(e){ col++; if(col>=3){col=0; y+=fotoH+gap+2;} }
+      }
+      if(col > 0) y += fotoH + gap + 2;
+      y += 4;
+    };
+
+    await agregarFotos(fotosR, 'FOTOS RETIRO DE EQUIPO');
+    await agregarFotos(fotosI, 'FOTOS EQUIPO INSTALADO');
+
+    // ── Footer ──
+    doc.setFillColor(245,245,245);
+    doc.rect(0, 285, pageW, 12, 'F');
+    doc.setTextColor(150,150,150);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7);
+    doc.text('Generado por KPI Sistema', margin, 292);
+    doc.text(new Date().toLocaleDateString('es'), pageW-margin, 292, {align:'right'});
+
+    doc.save(`Caso_${c.enlace||c.id}_${new Date().toLocaleDateString('es').replace(/\//g,'-')}.pdf`);
+    toast('PDF generado exitosamente.','#1a7a4a');
+  }
+
+  // ── Eliminar foto individual ──
+  async function eliminarFoto(casoId, tipo, index, fotos) {
+    if(!confirm('¿Eliminar esta foto?')) return;
+    const nuevasFotos = fotos.filter((_,i) => i !== index);
+    try {
+      await fetch(`${API}/casos?id=eq.${casoId}`, {
+        method: 'PATCH',
+        headers: { ...H, 'Prefer': 'return=representation' },
+        body: JSON.stringify({ [tipo]: nuevasFotos.length ? JSON.stringify(nuevasFotos) : null })
+      });
+      toast('Foto eliminada.', '#333');
+      cerrarModal('overlayVer');
+      cargarCasos();
+    } catch(e) {
+      toast('Error al eliminar foto.', '#b00000');
+    }
   }
 
   // ── Eliminar caso ──
@@ -636,65 +1493,854 @@
     toast('Caso eliminado.','#333'); cargarCasos();
   }
 
-  // ── Cargar casos ──
+  // ── Cargar casos (inicio = solo finalizados) ──
   async function cargarCasos(){
     try{
-      const res=await fetch(`${API}/casos?select=*,operadores(nombre)&order=created_at.desc`,{headers:H});
+      const res=await fetch(`${API}/casos?select=*,operadores(nombre)&estatus=eq.Finalizado&order=created_at.desc`,{headers:H});
       const casos=await res.json();
-      const tbody=document.getElementById('tablaCasos');
-      if(!casos.length){ tbody.innerHTML='<tr><td colspan="17"><div class="empty"><div class="emoji">📋</div>No hay casos registrados aún</div></td></tr>'; actualizarKPICards([]); return; }
-      tbody.innerHTML=casos.map(c=>`
-        <tr>
-          <td>
-            <div class="actions-cell">
-              <button class="btn btn-icon btn-view" title="Ver" onclick='verCaso(${JSON.stringify(c).replace(/'/g,"&#39;")})'>👁</button>
-              <button class="btn btn-icon btn-edit" title="Editar" onclick='abrirModalCaso(${JSON.stringify(c).replace(/'/g,"&#39;")})'>✏️</button>
-              <button class="btn btn-icon btn-delete" title="Eliminar" onclick="eliminarCaso('${c.id}')">🗑️</button>
-            </div>
-          </td>
-          <td>${c.enlace||'—'}</td>
-          <td><b>${c.operadores?.nombre||'—'}</b></td>
-          <td title="${c.direccion||''}">${(c.direccion||'—').substring(0,22)}${c.direccion?.length>22?'...':''}</td>
-          <td>${c.anio||'—'}</td>
-          <td>${c.mes||'—'}</td>
-          <td>${c.semana||'—'}</td>
-          <td>${c.dias||'—'}</td>
-          <td>${c.fecha_atencion?new Date(c.fecha_atencion).toLocaleString('es'):'—'}</td>
-          <td>${c.fecha_instalacion?new Date(c.fecha_instalacion).toLocaleString('es'):'—'}</td>
-          <td><b>${c.tiempo_total||'—'}</b></td>
-          <td>${c.pausa||'—'}</td>
-          <td><span class="badge ${c.sla?.includes('atraso')?'badge-red':'badge-green'}">${c.sla||'—'}</span></td>
-          <td>${c.coordenadas||'—'}</td>
-          <td title="${c.equipo_instalado||''}">${(c.equipo_instalado||'—').substring(0,18)}</td>
-          <td>${[c.foto_retiro,c.foto_instalado].filter(Boolean).map(u=>`<a href="${u}" target="_blank">📷</a>`).join(' ')||'—'}</td>
-          <td title="${c.observaciones||''}">${(c.observaciones||'—').substring(0,22)}</td>
-        </tr>
-      `).join('');
-      actualizarKPICards(casos);
+      todosCasos = casos;
+      poblarFiltros(casos);
+      filtrarCasos();
     }catch(e){}
+  }
+
+  // ── Capturar tabla para WhatsApp ──
+  async function capturarTabla(){
+    const casos = estadoActivo === 'Todos' ? todosLosEstados : todosLosEstados.filter(c=>c.estatus===estadoActivo);
+    if(!casos.length){ toast('No hay casos para capturar.','#b00000'); return; }
+
+    toast('Generando imagen...','#333');
+
+    // Crear tabla temporal estilizada para captura
+    const wrap = document.createElement('div');
+    wrap.style.cssText = `
+      position:fixed; left:-9999px; top:0;
+      background:#fff; padding:20px; font-family:Montserrat,sans-serif;
+      width:900px; border-radius:12px;
+    `;
+
+    const titulo = estadoActivo === 'Todos' ? 'Todos los Estados' : estadoActivo;
+    const fecha  = new Date().toLocaleDateString('es',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+
+    wrap.innerHTML = `
+      <div style="background:#8b0000;color:#fff;padding:14px 20px;border-radius:8px 8px 0 0;margin:-20px -20px 16px -20px;">
+        <div style="font-size:1.1rem;font-weight:800;">KPI Sistema — ${titulo}</div>
+        <div style="font-size:0.78rem;opacity:0.8;margin-top:2px;">${fecha}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+        <thead>
+          <tr style="background:#f5f5f5;">
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e0e0e0;font-size:0.7rem;color:#888;text-transform:uppercase;letter-spacing:0.5px;">#</th>
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e0e0e0;font-size:0.7rem;color:#888;text-transform:uppercase;letter-spacing:0.5px;">Estatus</th>
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e0e0e0;font-size:0.7rem;color:#888;text-transform:uppercase;letter-spacing:0.5px;">Enlace</th>
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e0e0e0;font-size:0.7rem;color:#888;text-transform:uppercase;letter-spacing:0.5px;">Operador</th>
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e0e0e0;font-size:0.7rem;color:#888;text-transform:uppercase;letter-spacing:0.5px;">Dirección</th>
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e0e0e0;font-size:0.7rem;color:#888;text-transform:uppercase;letter-spacing:0.5px;">Fecha Atención</th>
+            <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e0e0e0;font-size:0.7rem;color:#888;text-transform:uppercase;letter-spacing:0.5px;">Observaciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${casos.map((c,i) => {
+            const estatusColors = {
+              'Programado':'#6a1b9a','En Proceso':'#b8860b',
+              'Pausado':'#e65100','Cancelado':'#b71c1c'
+            };
+            const estatusBgs = {
+              'Programado':'#ede7f6','En Proceso':'#fff9c4',
+              'Pausado':'#ffe0b2','Cancelado':'#ffebee'
+            };
+            const bg = i%2===0?'#fff':'#fafafa';
+            const ec = estatusColors[c.estatus]||'#666';
+            const eb = estatusBgs[c.estatus]||'#f0f0f0';
+            return `<tr style="background:${bg};border-bottom:1px solid #f0f0f0;">
+              <td style="padding:10px 12px;color:#888;font-weight:600;">${i+1}</td>
+              <td style="padding:10px 12px;">
+                <span style="background:${eb};color:${ec};padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;">${c.estatus||'—'}</span>
+              </td>
+              <td style="padding:10px 12px;font-weight:600;">${c.enlace||'—'}</td>
+              <td style="padding:10px 12px;font-weight:700;">${c.operadores?.nombre||'—'}</td>
+              <td style="padding:10px 12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.direccion||'—'}</td>
+              <td style="padding:10px 12px;">${c.fecha_atencion?new Date(c.fecha_atencion).toLocaleString('es'):'—'}</td>
+              <td style="padding:10px 12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.observaciones||'—'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      <div style="text-align:right;font-size:0.7rem;color:#aaa;margin-top:12px;">Total: ${casos.length} caso(s)</div>
+    `;
+
+    document.body.appendChild(wrap);
+
+    try{
+      const canvas = await html2canvas(wrap, { scale:2, backgroundColor:'#fff', useCORS:true });
+      document.body.removeChild(wrap);
+
+      // Descargar imagen
+      const link = document.createElement('a');
+      link.download = `Estados_${titulo.replace(/ /g,'_')}_${new Date().toLocaleDateString('es').replace(/\//g,'-')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      toast('✅ Imagen descargada. ¡Lista para compartir por WhatsApp!','#25d366');
+    } catch(e){
+      document.body.removeChild(wrap);
+      toast('Error al generar imagen.','#b00000');
+    }
+  }
+  let todosLosEstados = [];
+  let estadoActivo = 'Todos';
+
+  async function cargarEstados(){
+    try{
+      const res = await fetch(`${API}/casos?select=*,operadores(nombre)&order=created_at.desc`,{headers:H});
+      const todos = await res.json();
+      // Excluir Finalizados — esos van solo en Inicio
+      todosLosEstados = todos.filter(c => c.estatus !== 'Finalizado');
+      renderEstadosCards();
+      renderEstadosTabla(estadoActivo);
+    }catch(e){}
+  }
+
+  function renderEstadosCards(){
+    const grupos = ['Programado','En Proceso','Pausado','Cancelado'];
+    const colors = { 'Programado':'#6a1b9a','En Proceso':'#b8860b','Pausado':'#e65100','Cancelado':'#b71c1c' };
+
+    document.getElementById('estadosCards').innerHTML =
+      `<div class="kpi-card" style="min-width:110px;cursor:pointer;" onclick="filtrarEstado('Todos')">
+        <div class="label">Total</div>
+        <div class="value" style="font-size:1.4rem;">${todosLosEstados.length}</div>
+        <div class="sub">activos</div>
+      </div>` +
+      grupos.map(g => {
+        const cnt = todosLosEstados.filter(c=>c.estatus===g).length;
+        return `<div class="kpi-card" style="min-width:110px;cursor:pointer;border-top-color:${colors[g]};" onclick="filtrarEstado('${g}')">
+          <div class="label" style="color:${colors[g]}">${g}</div>
+          <div class="value" style="font-size:1.4rem;color:${colors[g]};">${cnt}</div>
+          <div class="sub">casos</div>
+        </div>`;
+      }).join('');
+  }
+
+  function filtrarEstado(estatus){
+    estadoActivo = estatus;
+    // Actualizar tabs
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
+    const tabId = estatus === 'Todos' ? 'tabTodos' : 'tab' + estatus.replace(' ','');
+    const tab = document.getElementById(tabId);
+    if(tab) tab.classList.add('tab-active');
+    renderEstadosTabla(estatus);
+  }
+
+  function renderEstadosTabla(estatus){
+    const casos = estatus === 'Todos' ? todosLosEstados : todosLosEstados.filter(c=>c.estatus===estatus);
+    const tbody = document.getElementById('tablaEstados');
+    if(!casos.length){
+      tbody.innerHTML = `<tr><td colspan="10"><div class="empty"><div class="emoji">🔖</div>No hay casos con estatus "${estatus}"</div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = casos.map(c => `
+      <tr>
+        <td>
+          <div class="actions-cell">
+            <button class="btn btn-icon btn-view" onclick='verCaso(${JSON.stringify(c).replace(/'/g,"&#39;")})'>👁</button>
+            <button class="btn btn-icon btn-edit" onclick='abrirModalCaso(${JSON.stringify(c).replace(/'/g,"&#39;")})'>✏️</button>
+            <button class="btn btn-icon btn-delete" onclick="eliminarCaso('${c.id}')">🗑️</button>
+          </div>
+        </td>
+        <td>${estatusBadge(c.estatus)}</td>
+        <td>${c.enlace||'—'}</td>
+        <td><b>${c.operadores?.nombre||'—'}</b></td>
+        <td title="${c.direccion||''}">${(c.direccion||'—').substring(0,28)}${(c.direccion||'').length>28?'...':''}</td>
+        <td>${c.fecha_atencion?new Date(c.fecha_atencion).toLocaleString('es'):'—'}</td>
+        <td title="${c.observaciones||''}">${(c.observaciones||'—').substring(0,32)}</td>
+      </tr>
+    `).join('');
+  }
+
+  function estatusBadge(e){
+    const map = {
+      'Programado': { bg:'#ede7f6', color:'#6a1b9a', label:'🟣 Programado' },
+      'En Proceso':  { bg:'#fff9c4', color:'#b8860b', label:'🟡 En Proceso' },
+      'Pausado':     { bg:'#ffe0b2', color:'#e65100', label:'🟠 Pausado' },
+      'Finalizado':  { bg:'#e8f5e9', color:'#1b5e20', label:'🟢 Finalizado' },
+      'Cancelado':   { bg:'#ffebee', color:'#b71c1c', label:'🔴 Cancelado' },
+    };
+    const s = map[e] || { bg:'#f0f0f0', color:'#666', label: e||'—' };
+    return `<span style="background:${s.bg};color:${s.color};padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700;white-space:nowrap;">${s.label}</span>`;
+  }
+
+  function renderTabla(casos){
+    const tbody=document.getElementById('tablaCasos');
+    if(!casos.length){ tbody.innerHTML='<tr><td colspan="18"><div class="empty"><div class="emoji">📋</div>No hay casos registrados aún</div></td></tr>'; actualizarKPICards([]); return; }
+
+    // Contar fotos
+    const contarFotos = c => {
+      const p = v => { try{ const r=JSON.parse(v); return Array.isArray(r)?r.length:1; }catch{ return v?1:0; } };
+      return p(c.foto_retiro) + p(c.foto_instalado);
+    };
+
+    tbody.innerHTML=casos.map(c=>`
+      <tr>
+        <td>
+          <div class="actions-cell">
+            <button class="btn btn-icon btn-view" title="Ver" onclick='verCaso(${JSON.stringify(c).replace(/'/g,"&#39;")})'>👁</button>
+            <button class="btn btn-icon btn-edit" title="Editar" onclick='abrirModalCaso(${JSON.stringify(c).replace(/'/g,"&#39;")})'>✏️</button>
+            <button class="btn btn-icon btn-delete" title="Eliminar" onclick="eliminarCaso('${c.id}')">🗑️</button>
+          </div>
+        </td>
+        <td>${estatusBadge(c.estatus)}</td>
+        <td>${c.enlace||'—'}</td>
+        <td><b>${c.operadores?.nombre||'—'}</b></td>
+        <td title="${c.direccion||''}">${(c.direccion||'—').substring(0,22)}${c.direccion?.length>22?'...':''}</td>
+        <td>${c.anio||'—'}</td>
+        <td>${c.mes||'—'}</td>
+        <td>${c.semana||'—'}</td>
+        <td>${c.dias||'—'}</td>
+        <td>${c.fecha_atencion?new Date(c.fecha_atencion).toLocaleString('es'):'—'}</td>
+        <td>${c.fecha_instalacion?new Date(c.fecha_instalacion).toLocaleString('es'):'—'}</td>
+        <td><b>${c.tiempo_total||'—'}</b></td>
+        <td>${c.pausa||'—'}</td>
+        <td><span class="badge ${c.sla?.includes('atraso')?'badge-red':'badge-green'}">${c.sla||'—'}</span></td>
+        <td>${c.coordenadas||'—'}</td>
+        <td title="${c.equipo_instalado||''}">${(c.equipo_instalado||'—').substring(0,18)}</td>
+        <td style="text-align:center;">${contarFotos(c) > 0 ? `<span style="background:#e8f4fd;color:#1a6fa8;padding:2px 8px;border-radius:10px;font-weight:700;font-size:0.72rem;">📷 ${contarFotos(c)}</span>` : '—'}</td>
+        <td title="${c.observaciones||''}">${(c.observaciones||'—').substring(0,22)}</td>
+      </tr>
+    `).join('');
+    actualizarKPICards(casos);
+  }
+
+  function abrirMeta(){
+    const meta = JSON.parse(localStorage.getItem('kpi_meta')||'{}');
+    document.getElementById('metaCasos').value  = meta.casos||'';
+    document.getElementById('metaDesc').value   = meta.desc||'';
+    document.getElementById('metaInicio').value = meta.inicio||'';
+    document.getElementById('metaFin').value    = meta.fin||'';
+    document.getElementById('overlayMeta').classList.add('open');
+  }
+
+  function guardarMeta(){
+    const casos  = parseInt(document.getElementById('metaCasos').value);
+    const desc   = document.getElementById('metaDesc').value.trim();
+    const inicio = document.getElementById('metaInicio').value;
+    const fin    = document.getElementById('metaFin').value;
+    if(!casos||casos<1){ toast('Ingresa un número válido de casos.','#b00000'); return; }
+    if(!inicio||!fin){ toast('Ingresa las fechas de inicio y fin.','#b00000'); return; }
+    localStorage.setItem('kpi_meta', JSON.stringify({casos, desc, inicio, fin}));
+    toast('¡Meta guardada!','#1a7a4a');
+    cerrarModal('overlayMeta');
+    actualizarBarraMeta(todosCasos.length);
+  }
+
+  function actualizarBarraMeta(total){
+    const meta = JSON.parse(localStorage.getItem('kpi_meta')||'{}');
+    const barraEl = document.getElementById('kpiMetaBarra');
+    if(!meta.casos){ barraEl.style.display='none'; document.getElementById('kpiMetaSub').textContent='promedio general'; document.getElementById('kpiCumplimiento').textContent='—'; return; }
+
+    barraEl.style.display = 'block';
+    const pct = Math.min(100, Math.round((total/meta.casos)*100));
+
+    // Fechas formateadas
+    const fmtFecha = d => d ? new Date(d+'T00:00:00').toLocaleDateString('es',{day:'2-digit',month:'short',year:'numeric'}) : '';
+    const rangoFechas = meta.inicio && meta.fin ? `${fmtFecha(meta.inicio)} — ${fmtFecha(meta.fin)}` : '';
+
+    document.getElementById('kpiCumplimiento').textContent = pct + '%';
+    document.getElementById('kpiMetaSub').textContent = `${total.toLocaleString()} / ${meta.casos.toLocaleString()} casos`;
+    document.getElementById('kpiMetaLabel').textContent = (meta.desc||'Meta') + ': ' + meta.casos.toLocaleString() + ' casos';
+    document.getElementById('kpiMetaPct').textContent   = pct + '%';
+    document.getElementById('kpiMetaFill').style.width  = pct + '%';
+
+    // Color barra
+    const color = pct>=100 ? 'linear-gradient(90deg,#1a7a4a,#2ecc71)' : pct>=60 ? 'linear-gradient(90deg,#b06000,#f39c12)' : 'linear-gradient(90deg,#cc0000,#ff4444)';
+    document.getElementById('kpiMetaFill').style.background = color;
   }
 
   function actualizarKPICards(casos){
-    const total=casos.length, atraso=casos.filter(c=>c.sla?.includes('atraso')).length;
-    const aTiempo=total-atraso, pct=total?Math.round((aTiempo/total)*100):0;
+    const total=casos.length;
+    const atraso=casos.filter(c=>c.sla?.includes('atraso')).length;
+    const aTiempo=total-atraso;
+    const pct=total?Math.round((aTiempo/total)*100):0;
     document.getElementById('kpiTotal').textContent=total;
-    document.getElementById('kpiATiempo').textContent=aTiempo;
-    document.getElementById('kpiAtraso').textContent=atraso;
     document.getElementById('kpiCumplimiento').textContent=pct+'%';
+    actualizarBarraMeta(total);
+    actualizarGrafico(casos);
   }
 
-  // ── KPI ──
+  let chartInstance = null;
+  let chartBarrasInstance = null;
+  function actualizarGraficoBarras(casos){
+    const estatusOrden = ['Programado','En Proceso','Pausado','Finalizado','Cancelado'];
+    const colores = {
+      'Programado': 'rgba(106,27,154,0.8)',
+      'En Proceso':  'rgba(184,134,11,0.8)',
+      'Pausado':     'rgba(230,81,0,0.8)',
+      'Finalizado':  'rgba(27,94,32,0.8)',
+      'Cancelado':   'rgba(183,28,28,0.8)',
+    };
+
+    const conteo = {};
+    estatusOrden.forEach(e => conteo[e] = 0);
+    casos.forEach(c => { if(c.estatus && conteo[c.estatus]!==undefined) conteo[c.estatus]++; });
+
+    // Solo mostrar los que tienen datos
+    const labels = estatusOrden.filter(e => conteo[e] > 0);
+    const data   = labels.map(e => conteo[e]);
+    const bgs    = labels.map(e => colores[e]);
+
+    const ctx = document.getElementById('chartBarras').getContext('2d');
+    if(chartBarrasInstance) chartBarrasInstance.destroy();
+
+    chartBarrasInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          data,
+          backgroundColor: bgs,
+          borderRadius: 6,
+          borderSkipped: false,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} caso(s)` } },
+          datalabels: { display: false },
+        },
+        scales: {
+          x: { grid:{display:false}, ticks:{font:{size:9,family:'Montserrat'}} },
+          y: { display:false, beginAtZero:true }
+        },
+        animation: {
+          onComplete: function(){
+            const chart = this;
+            const ctx   = chart.ctx;
+            ctx.font    = 'bold 10px Montserrat';
+            ctx.fillStyle = '#444';
+            ctx.textAlign = 'center';
+            chart.data.datasets.forEach((dataset, i) => {
+              const meta = chart.getDatasetMeta(i);
+              meta.data.forEach((bar, idx) => {
+                const val = dataset.data[idx];
+                if(val > 0) ctx.fillText(val, bar.x, bar.y - 4);
+              });
+            });
+          }
+        }
+      }
+    });
+  }
+  function actualizarGrafico(casos){
+    const finalizados = casos.filter(c => c.estatus === 'Finalizado');
+    const ctx = document.getElementById('chartLineas').getContext('2d');
+    if(chartInstance) chartInstance.destroy();
+
+    if(!finalizados.length){
+      ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+      ctx.font='11px Montserrat'; ctx.fillStyle='#bbb'; ctx.textAlign='center';
+      ctx.fillText('Sin casos finalizados', ctx.canvas.width/2, ctx.canvas.height/2);
+      return;
+    }
+
+    const conteo = {};
+    finalizados.forEach(c => {
+      const fecha = c.fecha_instalacion
+        ? new Date(c.fecha_instalacion).toLocaleDateString('es', {day:'2-digit',month:'2-digit'})
+        : null;
+      if(fecha){ conteo[fecha] = (conteo[fecha]||0) + 1; }
+    });
+
+    const labels = Object.keys(conteo).sort((a,b)=>{
+      const [da,ma]=a.split('/'); const [db,mb]=b.split('/');
+      return new Date(2026,ma-1,da)-new Date(2026,mb-1,db);
+    });
+    const data = labels.map(l=>conteo[l]);
+
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Casos Finalizados',
+          data,
+          borderColor: '#cc0000',
+          backgroundColor: 'rgba(204,0,0,0.08)',
+          borderWidth: 2,
+          pointBackgroundColor: '#cc0000',
+          pointRadius: 3,
+          tension: 0.4,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} caso(s)` } }
+        },
+        scales: {
+          x: { grid:{display:false}, ticks:{font:{size:9,family:'Montserrat'}} },
+          y: { beginAtZero:true, ticks:{stepSize:1,font:{size:9,family:'Montserrat'}}, grid:{color:'#f0f0f0'} }
+        }
+      }
+    });
+  }
+
+  // ── Cerrar Día ──
+  async function cerrarDia(){
+    if(!confirm('¿Cerrar el día y guardar el cumplimiento actual en el historial? Esta acción no se puede deshacer.')) return;
+
+    const metaDiaria = parseInt(document.getElementById('metaDiaria')?.value||'7') || 7;
+    const hoy = new Date().toISOString().split('T')[0];
+
+    // Verificar si ya se cerró hoy
+    const check = await fetch(`${API}/historial_kpi?fecha=eq.${hoy}&select=id`,{headers:H});
+    const existe = await check.json();
+    if(existe && existe.length > 0){
+      toast('Ya se cerró el día de hoy. Solo se puede cerrar una vez por día.','#b00000');
+      return;
+    }
+
+    // Obtener datos actuales de la tabla KPI
+    const filas = document.querySelectorAll('#tablaKPI tr');
+    if(!filas.length || filas[0].querySelector('td[colspan]')){
+      toast('No hay datos para guardar.','#b00000');
+      return;
+    }
+
+    // Re-fetch para guardar datos frescos
+    const res = await fetch(`${API}/casos?select=*,operadores(nombre)`,{headers:H});
+    const todos = await res.json();
+    const finalizados = todos.filter(c => c.estatus === 'Finalizado');
+
+    const ops = {};
+    finalizados.forEach(c => {
+      const n = c.operadores?.nombre || 'Sin asignar';
+      if(!ops[n]) ops[n] = { nombre:n, dias:new Set(), finalizados:0 };
+      ops[n].finalizados++;
+      if(c.fecha_instalacion){
+        ops[n].dias.add(new Date(c.fecha_instalacion).toLocaleDateString('es'));
+      }
+    });
+
+    const registros = Object.values(ops).map(o => {
+      const diasTrabajados = o.dias.size || 1;
+      const metaTotal = metaDiaria * diasTrabajados;
+      const pct = Math.min(100, Math.round((o.finalizados / metaTotal)*100));
+      return {
+        fecha: hoy,
+        operador_nombre: o.nombre,
+        dias_trabajados: diasTrabajados,
+        casos_finalizados: o.finalizados,
+        meta_total: metaTotal,
+        meta_diaria: metaDiaria,
+        cumplimiento_pct: pct,
+        promedio_dia: parseFloat((o.finalizados/diasTrabajados).toFixed(2))
+      };
+    });
+
+    if(!registros.length){ toast('No hay operadores con casos finalizados.','#b00000'); return; }
+
+    const saveRes = await fetch(`${API}/historial_kpi`,{
+      method:'POST',
+      headers:{...H,'Prefer':'return=representation'},
+      body: JSON.stringify(registros)
+    });
+
+    if(saveRes.ok){
+      toast(`✅ Día cerrado. ${registros.length} operador(es) guardados en historial.`,'#1a7a4a');
+    } else {
+      toast('Error al guardar historial.','#b00000');
+    }
+  }
+
+  let chartHistorialInstance = null;
+
+  function limpiarFiltrosHistorial(){
+    document.getElementById('hfDesde').value = '';
+    document.getElementById('hfHasta').value = '';
+    document.getElementById('hfOperador').value = '';
+    cargarHistorial();
+  }
+
+  // ── Cargar Historial ──
+  async function cargarHistorial(){
+    try{
+      const res = await fetch(`${API}/historial_kpi?select=*&order=fecha.desc,operador_nombre.asc`,{headers:H});
+      const todo = await res.json();
+
+      // Poblar select operadores
+      const ops = [...new Set(todo.map(h=>h.operador_nombre))].sort();
+      const selOp = document.getElementById('hfOperador');
+      const curOp = selOp.value;
+      selOp.innerHTML = '<option value="">Todos los operadores</option>';
+      ops.forEach(o => selOp.innerHTML += `<option value="${o}">${o}</option>`);
+      if(curOp) selOp.value = curOp;
+
+      // Aplicar filtros
+      const desde = document.getElementById('hfDesde').value;
+      const hasta = document.getElementById('hfHasta').value;
+      const opFil = document.getElementById('hfOperador').value;
+
+      const data = todo.filter(h =>
+        (!desde || h.fecha >= desde) &&
+        (!hasta || h.fecha <= hasta) &&
+        (!opFil || h.operador_nombre === opFil)
+      );
+
+      // ── Tarjetas resumen ──
+      const cardsEl = document.getElementById('historialCards');
+      if(data.length){
+        const diasUnicos = [...new Set(data.map(h=>h.fecha))].length;
+        const pctProm = Math.round(data.reduce((s,h)=>s+h.cumplimiento_pct,0)/data.length);
+        const totalFin = data.reduce((s,h)=>s+h.casos_finalizados,0);
+        const enMeta   = data.filter(h=>h.cumplimiento_pct>=100).length;
+        const color    = pctProm>=100?'#1a7a4a':pctProm>=60?'#b06000':'#cc0000';
+
+        cardsEl.innerHTML = `
+          <div class="kpi-card"><div class="label">Días Registrados</div><div class="value">${diasUnicos}</div><div class="sub">en el período</div></div>
+          <div class="kpi-card"><div class="label">Total Finalizados</div><div class="value">${totalFin}</div><div class="sub">casos acumulados</div></div>
+          <div class="kpi-card"><div class="label">KPI Promedio</div><div class="value" style="color:${color}">${pctProm}%</div><div class="sub">cumplimiento general</div></div>
+          <div class="kpi-card"><div class="label">Registros en Meta</div><div class="value" style="color:#1a7a4a">${enMeta}</div><div class="sub">de ${data.length} registros</div></div>
+        `;
+      } else {
+        cardsEl.innerHTML = '';
+      }
+
+      // ── Gráfico cumplimiento por día ──
+      const porFecha = {};
+      data.forEach(h => {
+        if(!porFecha[h.fecha]) porFecha[h.fecha] = [];
+        porFecha[h.fecha].push(h.cumplimiento_pct);
+      });
+      const fechasOrden = Object.keys(porFecha).sort();
+      const pctsPorFecha = fechasOrden.map(f => Math.round(porFecha[f].reduce((s,v)=>s+v,0)/porFecha[f].length));
+      const fmtFecha = f => new Date(f+'T12:00:00').toLocaleDateString('es',{day:'2-digit',month:'short'});
+
+      const ctx = document.getElementById('chartHistorial').getContext('2d');
+      if(chartHistorialInstance) chartHistorialInstance.destroy();
+
+      if(fechasOrden.length){
+        chartHistorialInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: fechasOrden.map(fmtFecha),
+            datasets: [
+              {
+                label: 'Cumplimiento %',
+                data: pctsPorFecha,
+                backgroundColor: pctsPorFecha.map(p => p>=100?'rgba(27,94,32,0.75)':p>=60?'rgba(184,134,11,0.75)':'rgba(183,28,28,0.75)'),
+                borderRadius: 5,
+              },
+              {
+                label: 'Meta 100%',
+                data: fechasOrden.map(()=>100),
+                type: 'line',
+                borderColor: '#cc0000',
+                borderWidth: 1.5,
+                borderDash: [5,4],
+                pointRadius: 0,
+                fill: false,
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display:true, position:'top', labels:{font:{size:9,family:'Montserrat'}} },
+              tooltip: { callbacks:{ label: ctx => ` ${ctx.parsed.y}%` } }
+            },
+            scales: {
+              x: { grid:{display:false}, ticks:{font:{size:9,family:'Montserrat'}} },
+              y: { beginAtZero:true, max:120, ticks:{callback:v=>v+'%',font:{size:9,family:'Montserrat'}}, grid:{color:'#f0f0f0'} }
+            }
+          }
+        });
+      }
+
+      // ── Tabla ──
+      const tbody = document.getElementById('tablaHistorial');
+      if(!data.length){
+        tbody.innerHTML='<tr><td colspan="8"><div class="empty"><div class="emoji">📅</div>No hay historial para este período</div></td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = data.map(h => {
+        const color = h.cumplimiento_pct>=100?'#1a7a4a':h.cumplimiento_pct>=60?'#b06000':'#cc0000';
+        const estado = h.cumplimiento_pct>=100
+          ? '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700;">✅ Cumple</span>'
+          : h.cumplimiento_pct>=60
+          ? '<span style="background:#fff8e1;color:#b8860b;padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700;">⚠️ Parcial</span>'
+          : '<span style="background:#ffebee;color:#b71c1c;padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700;">❌ No cumple</span>';
+
+        return `<tr>
+          <td><b>${new Date(h.fecha+'T12:00:00').toLocaleDateString('es',{day:'2-digit',month:'short',year:'numeric'})}</b></td>
+          <td>${h.operador_nombre}</td>
+          <td style="text-align:center;"><b>${h.casos_finalizados}</b></td>
+          <td style="text-align:center;">${h.meta_total}</td>
+          <td style="text-align:center;">${h.meta_diaria}/día</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="flex:1;background:#f0f0f0;border-radius:10px;height:7px;overflow:hidden;">
+                <div style="width:${h.cumplimiento_pct}%;height:100%;background:${color};border-radius:10px;"></div>
+              </div>
+              <b style="color:${color};min-width:36px;">${h.cumplimiento_pct}%</b>
+            </div>
+          </td>
+          <td style="text-align:center;">${h.promedio_dia}</td>
+          <td>${estado}</td>
+        </tr>`;
+      }).join('');
+
+    }catch(e){ toast('Error al cargar historial.','#b00000'); }
+  }
+
+  // ── Ver detalle operador ──
+  async function verDetalleOperador(opId, nombre){
+    document.getElementById('detalleOpTitulo').textContent = '📋 Casos de ' + nombre;
+    document.getElementById('detalleOpTabla').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa;">Cargando...</td></tr>';
+    document.getElementById('overlayDetalleOp').classList.add('open');
+
+    try{
+      const res = await fetch(`${API}/casos?operador_id=eq.${opId}&select=*&order=fecha_instalacion.desc`,{headers:H});
+      const casos = await res.json();
+
+      // Cards resumen
+      const total = casos.length;
+      const fin   = casos.filter(c=>c.estatus==='Finalizado').length;
+      const slaMins = casos.filter(c=>c.sla).map(c=>{ const p=c.sla.split(':'); return parseInt(p[0])*60+(parseInt(p[1])||0); });
+      const slaAvg  = slaMins.length ? `${String(Math.floor(slaMins.reduce((s,v)=>s+v,0)/slaMins.length/60)).padStart(2,'0')}:${String(Math.round(slaMins.reduce((s,v)=>s+v,0)/slaMins.length%60)).padStart(2,'0')}` : '—';
+
+      document.getElementById('detalleOpCards').innerHTML = `
+        <div class="kpi-card" style="min-width:130px;"><div class="label">Total Casos</div><div class="value" style="font-size:1.4rem;">${total}</div></div>
+        <div class="kpi-card" style="min-width:130px;"><div class="label">Finalizados</div><div class="value" style="font-size:1.4rem;color:#1a7a4a;">${fin}</div></div>
+        <div class="kpi-card" style="min-width:130px;"><div class="label">SLA Promedio</div><div class="value" style="font-size:1.4rem;color:#555;">${slaAvg}</div></div>
+      `;
+
+      if(!casos.length){
+        document.getElementById('detalleOpTabla').innerHTML = '<tr><td colspan="6"><div class="empty" style="padding:24px;">Sin casos registrados</div></td></tr>';
+        return;
+      }
+
+      document.getElementById('detalleOpTabla').innerHTML = casos.map(c => `
+        <tr>
+          <td>${c.enlace||'—'}</td>
+          <td title="${c.direccion||''}">${(c.direccion||'—').substring(0,28)}</td>
+          <td>${c.fecha_instalacion?new Date(c.fecha_instalacion).toLocaleDateString('es'):'—'}</td>
+          <td><b>${c.tiempo_total||'—'}</b></td>
+          <td>${c.sla||'—'}</td>
+          <td>${estatusBadge(c.estatus)}</td>
+        </tr>
+      `).join('');
+
+    }catch(e){ toast('Error al cargar detalle.','#b00000'); }
+  }
+
+  let chartKPIInstance = null;
   async function renderKPI(){
     try{
-      const res=await fetch(`${API}/casos?select=sla,operadores(nombre)`,{headers:H});
-      const casos=await res.json();
-      const ops={};
-      casos.forEach(c=>{ const n=c.operadores?.nombre||'Sin asignar'; if(!ops[n]) ops[n]={total:0,aTiempo:0}; ops[n].total++; if(!c.sla?.includes('atraso')) ops[n].aTiempo++; });
-      const barsEl=document.getElementById('kpiBars'), cardsEl=document.getElementById('kpiCardsOp');
-      if(!Object.keys(ops).length){ barsEl.innerHTML='<div class="empty"><div class="emoji">📊</div>No hay datos aún</div>'; cardsEl.innerHTML=''; return; }
-      cardsEl.innerHTML=Object.entries(ops).map(([n,d])=>{ const pct=Math.round((d.aTiempo/d.total)*100); return `<div class="kpi-card"><div class="label">${n}</div><div class="value" style="color:${pct>=80?'#1a7a4a':'#cc0000'}">${pct}%</div><div class="sub">${d.aTiempo}/${d.total} a tiempo</div></div>`; }).join('');
-      barsEl.innerHTML=Object.entries(ops).map(([n,d])=>{ const pct=Math.round((d.aTiempo/d.total)*100); return `<div class="kpi-bar-row"><div class="kpi-name">${n}</div><div class="kpi-bar-bg"><div class="kpi-bar-fill" style="width:${pct}%"></div></div><div class="kpi-pct">${pct}%</div></div>`; }).join('');
-    }catch(e){}
+      const metaDiaria = parseInt(document.getElementById('metaDiaria')?.value||'7') || 7;
+      const kfAnio   = document.getElementById('kfAnio')?.value || '';
+      const kfMes    = document.getElementById('kfMes')?.value  || '';
+      const kfSemana = document.getElementById('kfSemana')?.value || '';
+
+      const res = await fetch(`${API}/casos?select=*,operadores(nombre)&order=fecha_instalacion.asc`,{headers:H});
+      const todos = await res.json();
+
+      // Poblar semanas en filtro KPI
+      const semanas = [...new Set(todos.map(c=>c.semana).filter(Boolean))].sort((a,b)=>a-b);
+      const selSem = document.getElementById('kfSemana');
+      const curSem = selSem.value;
+      selSem.innerHTML = '<option value="">Todas las semanas</option>';
+      semanas.forEach(s => selSem.innerHTML += `<option value="${s}">${s}</option>`);
+      if(curSem) selSem.value = curSem;
+
+      // Fecha de hoy para comparar
+      const hoy = new Date();
+      const hoyStr = hoy.toISOString().split('T')[0]; // YYYY-MM-DD
+
+      // Filtrar por los selectores
+      const casosFiltrados = todos.filter(c =>
+        (!kfAnio   || String(c.anio)   === kfAnio) &&
+        (!kfMes    || c.mes            === kfMes) &&
+        (!kfSemana || String(c.semana) === kfSemana)
+      );
+
+      // Solo finalizados para KPI
+      const finalizados = casosFiltrados.filter(c => c.estatus === 'Finalizado');
+
+      // Determinar si estamos viendo "hoy" o un período específico
+      const viendeHoy = !kfAnio && !kfMes && !kfSemana;
+
+      // Obtener todos los operadores registrados
+      const resOps = await fetch(`${API}/operadores?select=id,nombre&order=nombre`,{headers:H});
+      const operadores = await resOps.json();
+
+      if(!operadores.length){
+        document.getElementById('tablaKPI').innerHTML = '<tr><td colspan="7"><div class="empty"><div class="emoji">📊</div>No hay operadores registrados</div></td></tr>';
+        document.getElementById('kpiCardsOp').innerHTML = '';
+        return;
+      }
+
+      // Calcular KPI por operador
+      const data = operadores.map(op => {
+        const casosOp = finalizados.filter(c => c.operador_id === op.id);
+
+        let casosContados;
+        if(viendeHoy){
+          casosContados = casosOp.filter(c => {
+            if(!c.fecha_instalacion) return false;
+            const fechaCaso = new Date(c.fecha_instalacion);
+            return fechaCaso.getFullYear() === hoy.getFullYear() &&
+                   fechaCaso.getMonth()    === hoy.getMonth() &&
+                   fechaCaso.getDate()     === hoy.getDate();
+          }).length;
+        } else {
+          casosContados = casosOp.length;
+        }
+
+        // SLA promedio (convertir hh:mm a minutos y promediar)
+        const slaMins = casosOp.map(c => {
+          if(!c.sla) return null;
+          const parts = c.sla.split(':');
+          if(parts.length < 2) return null;
+          return parseInt(parts[0])*60 + parseInt(parts[1]);
+        }).filter(v => v !== null);
+
+        const slaPromMin = slaMins.length ? Math.round(slaMins.reduce((s,v)=>s+v,0)/slaMins.length) : null;
+        const slaPromedio = slaPromMin !== null
+          ? `${String(Math.floor(slaPromMin/60)).padStart(2,'0')}:${String(slaPromMin%60).padStart(2,'0')}`
+          : '—';
+
+        const pct = Math.min(100, Math.round((casosContados / metaDiaria) * 100));
+
+        return {
+          opId: op.id,
+          nombre: op.nombre,
+          casosFinalizados: casosContados,
+          metaTotal: metaDiaria,
+          slaPromedio,
+          pct
+        };
+      }).sort((a,b) => b.pct - a.pct);
+
+      // Tarjetas resumen
+      const totalOps   = data.length;
+      const enMeta     = data.filter(d => d.pct >= 100).length;
+      const pctGeneral = Math.round(data.reduce((s,d)=>s+d.pct,0) / totalOps);
+      const fechaLabel = viendeHoy ? hoy.toLocaleDateString('es',{weekday:'long',day:'2-digit',month:'long'}) : 'período filtrado';
+
+      document.getElementById('kpiCardsOp').innerHTML = `
+        <div class="kpi-card"><div class="label">Operadores</div><div class="value">${totalOps}</div><div class="sub">evaluados</div></div>
+        <div class="kpi-card"><div class="label">Cumplen Meta</div><div class="value" style="color:#1a7a4a">${enMeta}</div><div class="sub">de ${totalOps}</div></div>
+        <div class="kpi-card"><div class="label">KPI General</div><div class="value" style="color:${pctGeneral>=100?'#1a7a4a':pctGeneral>=60?'#b06000':'#cc0000'}">${pctGeneral}%</div><div class="sub">${fechaLabel}</div></div>
+        <div class="kpi-card"><div class="label">Meta Diaria</div><div class="value">${metaDiaria}</div><div class="sub">casos por operador</div></div>
+      `;
+
+      // ── Alertas ──
+      const alertas = data.filter(d => d.casosFinalizados === 0);
+      const alertasEl = document.getElementById('kpiAlertas');
+      if(alertas.length){
+        alertasEl.innerHTML = `
+          <div style="background:#fff3cd;border:1.5px solid #ffc107;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="font-size:1.1rem;">⚠️</span>
+            <span style="font-size:0.82rem;font-weight:700;color:#856404;">ALERTA — Sin casos finalizados hoy:</span>
+            ${alertas.map(d=>`<span style="background:#ffc107;color:#000;padding:2px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;">${d.nombre}</span>`).join('')}
+          </div>`;
+      } else {
+        alertasEl.innerHTML = '';
+      }
+
+      // ── Ranking top 3 ──
+      const medallas = ['🥇','🥈','🥉'];
+      const top3 = data.slice(0,3);
+      document.getElementById('kpiRanking').innerHTML = `
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          ${top3.map((d,i)=>`
+            <div style="background:#fff;border-radius:10px;padding:14px 18px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;min-width:200px;border-top:3px solid ${i===0?'#FFD700':i===1?'#C0C0C0':'#CD7F32'};">
+              <span style="font-size:1.8rem;">${medallas[i]}</span>
+              <div>
+                <div style="font-weight:800;font-size:0.88rem;">${d.nombre}</div>
+                <div style="font-size:0.75rem;color:#888;">${d.casosFinalizados} casos • <b style="color:${d.pct>=100?'#1a7a4a':'#cc0000'}">${d.pct}%</b></div>
+                <div style="font-size:0.72rem;color:#aaa;">SLA prom: ${d.slaPromedio}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>`;
+
+      // ── Tabla ──
+      document.getElementById('tablaKPI').innerHTML = data.map((d,i) => {
+        const color  = d.pct>=100?'#1a7a4a':d.pct>=60?'#b06000':'#cc0000';
+        const estado = d.pct>=100
+          ? '<span style="background:#e8f5e9;color:#1b5e20;padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700;">✅ Cumple</span>'
+          : d.pct>=60
+          ? '<span style="background:#fff8e1;color:#b8860b;padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700;">⚠️ Parcial</span>'
+          : '<span style="background:#ffebee;color:#b71c1c;padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700;">❌ No cumple</span>';
+        const medalla = i < 3 ? medallas[i] : `${i+1}`;
+
+        return `<tr>
+          <td style="text-align:center;font-size:1rem;">${medalla}</td>
+          <td><b>${d.nombre}</b></td>
+          <td style="text-align:center;"><b>${d.casosFinalizados}</b></td>
+          <td style="text-align:center;">${d.metaTotal}</td>
+          <td style="text-align:center;font-weight:600;color:#555;">${d.slaPromedio}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="flex:1;background:#f0f0f0;border-radius:10px;height:8px;overflow:hidden;">
+                <div style="width:${d.pct}%;height:100%;background:${color};border-radius:10px;transition:width 1s;"></div>
+              </div>
+              <b style="color:${color};min-width:36px;">${d.pct}%</b>
+            </div>
+          </td>
+          <td>${estado}</td>
+          <td><button class="btn btn-icon btn-view" onclick="verDetalleOperador('${d.opId}','${d.nombre}')" title="Ver casos">👁</button></td>
+        </tr>`;
+      }).join('');
+
+      // Gráfico
+      const ctx = document.getElementById('chartKPI').getContext('2d');
+      if(chartKPIInstance) chartKPIInstance.destroy();
+      chartKPIInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.map(d=>d.nombre),
+          datasets: [
+            {
+              label: 'Cumplimiento %',
+              data: data.map(d=>d.pct),
+              backgroundColor: data.map(d => d.pct>=100?'rgba(27,94,32,0.8)':d.pct>=60?'rgba(184,134,11,0.8)':'rgba(183,28,28,0.8)'),
+              borderRadius: 6,
+            },
+            {
+              label: 'Meta (100%)',
+              data: data.map(()=>100),
+              type: 'line',
+              borderColor: '#cc0000',
+              borderWidth: 1.5,
+              borderDash: [6,4],
+              pointRadius: 0,
+              fill: false,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display:true, position:'top', labels:{font:{size:10,family:'Montserrat'}} },
+            tooltip: { callbacks:{ label: ctx => ` ${ctx.parsed.y}%` } }
+          },
+          scales: {
+            x: { grid:{display:false}, ticks:{font:{size:10,family:'Montserrat'}} },
+            y: { beginAtZero:true, max:120, ticks:{callback:v=>v+'%',font:{size:10,family:'Montserrat'}}, grid:{color:'#f0f0f0'} }
+          }
+        }
+      });
+
+    }catch(e){ console.error(e); }
   }
 
   // ── Operadores ──
@@ -734,7 +2380,12 @@
     toast('Operador eliminado.','#333'); cargarOperadores();
   }
 
-  function cerrarSesion(){ sessionStorage.clear(); localStorage.removeItem('kpi_session'); window.location.href='index.html'; }
+  function cerrarSesion(){
+    sessionStorage.clear();
+    localStorage.removeItem('kpi_session');
+    sb.auth.signOut();
+    window.location.href = 'index.html';
+  }
 
   // Init
   cargarCasos();
