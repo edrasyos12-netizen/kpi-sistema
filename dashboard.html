@@ -1637,9 +1637,7 @@ function populateFiltros() {
   const meses    = [...new Set(MIGRATIONS.map(m => { const d=m.fechaMigracion||m.fechaAgendada; return d?new Date(d).getMonth()+1:null; }).filter(Boolean))].sort((a,b)=>a-b);
   const mesesNom = ["","Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   const semanas  = [...new Set(MIGRATIONS.map(m => m.semana).filter(v => v !== "" && v !== null && v !== undefined))].sort((a,b)=>a-b);
-  const dias     = [...new Set(MIGRATIONS.map(m => m.dia).filter(Boolean))];
-  const diasOrden = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
-  dias.sort((a,b) => { const ia=diasOrden.indexOf(a), ib=diasOrden.indexOf(b); return (ia===-1?99:ia)-(ib===-1?99:ib); });
+  const dias = [...new Set(MIGRATIONS.map(m => m.dia).filter(v => v !== null && v !== undefined && v !== ""))].sort((a,b) => parseInt(a)-parseInt(b));
 
   const cur = {
     anio:    document.getElementById("filAnio")?.value,
