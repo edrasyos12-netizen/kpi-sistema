@@ -1570,10 +1570,7 @@ function renderInicio() {
   // Gráfica línea con delay para que el canvas tenga dimensiones
   setTimeout(() => { renderLineChart(); }, 300);
 
-  // Poblar filtros dinámicos
-  populateFiltros();
-
-  // Filtrar registros
+  // Leer valores ANTES de repoblar los selects
   const fAnio     = document.getElementById("filAnio")?.value || "";
   const fMes      = document.getElementById("filMes")?.value || "";
   const fSemana   = document.getElementById("filSemana")?.value || "";
@@ -1583,6 +1580,9 @@ function renderInicio() {
   const fEstatus  = document.getElementById("filEstatus")?.value || "";
   const fCodigo   = (document.getElementById("filBusquedaCodigo")?.value || "").toLowerCase().trim();
   const fTerminal = (document.getElementById("filBusquedaTerminal")?.value || "").toLowerCase().trim();
+
+  // Poblar filtros dinámicos (después de leer valores)
+  populateFiltros();
 
   const INICIO_ESTADOS = ["Finalizado", "Pausado"];
 
